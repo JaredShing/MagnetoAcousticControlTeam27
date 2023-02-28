@@ -15,12 +15,13 @@ class CameraWidget(QtWidgets.QWidget):
     """Independent camera feed
     Uses threading to grab IP camera frames in the background
     """
-    def __init__(self, width, height, stream_link=0, aspect_ratio=False, parent=None, deque_size=1):
+    def __init__(self, width, height, data_table, stream_link=0, aspect_ratio=False, parent=None, deque_size=1):
         super(CameraWidget, self).__init__(parent)
         
         # Initialize deque used to store frames read from the stream
         self.deque = deque(maxlen=deque_size)
-
+        self.positions = {}
+        self.data_table = data_table
         # Slight offset is needed since PyQt layouts have a built in padding
         # So add offset to counter the padding 
         self.offset = 16
@@ -145,13 +146,28 @@ class CameraWidget(QtWidgets.QWidget):
         hsvTest = cv2.cvtColor(dilated, cv2.COLOR_BGR2HSV)
         maskTest = cv2.inRange(hsvTest, black, gray)
         contours, hierarchy = cv2.findContours(maskTest, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for object in contours:
+        for idx, object in enumerate(contours):
             objectArea = cv2.contourArea(object)
             if objectArea > 400:
                 x, y, width, height = cv2.boundingRect(object)
                 cv2.rectangle(self.frame, (x, y), (x + width, y + height), (255, 0, 0), 2)
                 cv2.drawContours(self.frame, object, -1, (0, 0, 255), 2)
+                self.positions[idx] = (x,y)
+        self.update_table(self.data_table, self.positions)
+                
+    def update_table(self, tableWidget, data):
+    # Clear the table
+        tableWidget.clearContents()
 
+        # Add the updated dictionary data to the table
+        for i, (index, (x, y)) in enumerate(data.items()):
+            tableWidget.setItem(i, 0, QtWidgets.QTableWidgetItem(str(index)))
+            tableWidget.setItem(i, 1, QtWidgets.QTableWidgetItem(str(x)))
+            tableWidget.setItem(i, 2, QtWidgets.QTableWidgetItem(str(y)))
+                    
+    def get_position_data(self):
+        return self.positions
+    
     def dilatation(self, src):
         dilatation_size = 1
         dilation_shape = cv2.MORPH_ELLIPSE
@@ -215,11 +231,17 @@ class App(QMainWindow):
         button_grid.addWidget(zNegButton,2,1)
         button_grid.addWidget(acousticButton,3,0)
         
+        
+        # Create a table widget
+        table = QtWidgets.QTableWidget()
+        table.setRowCount(10)
+        table.setColumnCount(3)
+        table.setHorizontalHeaderLabels(["Index","X Pos", "Y Pos"])
+
         cw = QtWidgets.QWidget()
         my_grid = QtWidgets.QGridLayout()
         cw.setLayout(my_grid)
         self.setCentralWidget(cw)
-        self.showMaximized()
         
         # Dynamically determine screen width/height
         screen_width = QtWidgets.QApplication.desktop().screenGeometry().width()
@@ -231,15 +253,18 @@ class App(QMainWindow):
         
         # Create camera widgets
         print('Creating Camera Widgets...')
-        zero = CameraWidget(screen_width//3, screen_height//3, camera0)
-        one = CameraWidget(screen_width//3, screen_height//3, camera1)
-
-        
+        zero = CameraWidget(screen_width//3, screen_height//3, table, camera0)
+        # one = CameraWidget(screen_width//3, screen_height//3, camera1)
+        while zero.online is False:
+              time.sleep(1)
         # Add widgets to layout
         print('Adding widgets to layout...')
-        my_grid.addWidget(zero.get_video_frame(),0,0,1,1)
-        my_grid.addWidget(one.get_video_frame(),1,0,1,1)
-        my_grid.addLayout(button_grid,0,1,2,1)
+        my_grid.addWidget(zero.get_video_frame(),0,0,1,2)
+        # my_grid.addWidget(one.get_video_frame(),1,0,1,1)
+        my_grid.addWidget(table,0,2,1,3)
+        my_grid.addLayout(button_grid,0,5,1,2)
+        print(my_grid.columnCount())
+        
 
 
 
