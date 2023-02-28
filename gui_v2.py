@@ -9,7 +9,8 @@ import cv2
 import imutils
 import numpy as np
 from functools import partial
-
+import serial
+from enum import Enum
 # This code starts 2 cameras on separate threads to prevent frame lag
 class CameraWidget(QtWidgets.QWidget):
     """Independent camera feed
@@ -181,6 +182,41 @@ def exit_application():
     """Exit program event handler"""
     sys.exit(1)
 
+class direction(Enum):
+    FORWARD = 1
+    BACKWARD = -1
+
+class Coil():
+    def __init__(self, axis, resistance, arduino):
+        self.axis = axis
+        self.resistance = resistance
+        self.voltage = 24
+        self.pwm_value = 0
+        self.PWM_MAX = 255
+        self.direction = direction.FORWARD
+        self.arduino = arduino
+    
+    # Increase the pwm value being sent to the coil
+    def increment_pwm_value(self):
+        self.pwm_value += 1
+        self.arduino.write(self.pwm_value)
+        print(self.pwm_value)
+    
+    # return the calculated current value based on the pwm value
+    def get_current_value(self):
+        return self.pwm_value/self.PWM_MAX*self.voltage/self.resistance
+
+    # T0 change the direction we send a request to the arduino via serial.
+    # The serial request sends the coil axis {x, y, z}, then the direction {f, b}
+    # Foe example to change coil 1 forward, the request is "Xf"
+    def set_direction(self, direction_request):
+        self.direction = direction_request
+        if self.direction == direction.BACKWARD:
+            self.arduino.write(f"{self.axis}f".encode())
+        else:
+            self.arduino.write(f"{self.axis}b".encode())
+
+
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -190,32 +226,36 @@ class App(QMainWindow):
         self.zPos = 0
         self.mag = 0
 
+        print('Creating Arduino Connection')
+        self.arduino = serial.Serial('COM6',9600) #Create Serial port object called arduinoSerialData
+        self.setup_coils(self.arduino)
+
         self.setWindowTitle("Magneto-Acoustic Control GUI")
 
         # Create buttons to control magnetics and acoustics
         xPosButton = QPushButton('+', self)
         xPosButton.setToolTip('Increase the x field')
-        xPosButton.clicked.connect(partial(self.onCoilClick, "x", 1))
+        xPosButton.clicked.connect(partial(self.onCoilClick, self.coil1))
 
         xNegButton = QPushButton('-', self)
         xNegButton.setToolTip('Decrease the x field')
-        xNegButton.clicked.connect(partial(self.onCoilClick, "x", -1))
+        xNegButton.clicked.connect(partial(self.onCoilClick, self.coil2))
 
         yPosButton = QPushButton('+', self)
         yPosButton.setToolTip('Increase the y field')
-        yPosButton.clicked.connect(partial(self.onCoilClick, "y", 1))
+        yPosButton.clicked.connect(partial(self.onCoilClick, self.coil3))
 
         yNegButton = QPushButton('-', self)
         yNegButton.setToolTip('Decrease the y field')
-        yNegButton.clicked.connect(partial(self.onCoilClick, "y", -1))
+        yNegButton.clicked.connect(partial(self.onCoilClick, self.coil4))
 
         zPosButton = QPushButton('+', self)
         zPosButton.setToolTip('Increase the z field')
-        zPosButton.clicked.connect(partial(self.onCoilClick, "z", 1))
+        zPosButton.clicked.connect(partial(self.onCoilClick, self.coil5))
 
         zNegButton = QPushButton('-', self)
         zNegButton.setToolTip('Decrease the z field')
-        zNegButton.clicked.connect(partial(self.onCoilClick, "z", -1))
+        zNegButton.clicked.connect(partial(self.onCoilClick, self.coil6))
 
         acousticButton = QPushButton('Acoustics', self)
         acousticButton.setToolTip('Turn on/off acoustics')
@@ -265,28 +305,21 @@ class App(QMainWindow):
         my_grid.addLayout(button_grid,0,5,1,2)
         print(my_grid.columnCount())
         
-
-
-
-        print('Verifying camera credentials...')
+        print('Verifying camera work correctly')
 
 
     # when the direction buttons are clicked
-    def onCoilClick(self, pos, value):
-        # self.xPos = self.xPos + value
-        # print('x changed value ' + str(self.xPos))
-        # return self.xPos
-        if (pos == "x"):
-            # xPos = xPos + value
-            # print('x changed value\n')
-            self.xPos = self.xPos + value
-            print('x changed value ' + str(self.xPos))
-        elif (pos == "y"):
-            self.yPos = self.yPos + value
-            print('y changed value ' + str(self.yPos))
-        else:
-            self.zPos = self.zPos + value
-            print('z changed value ' + str(self.zPos))
+    def onCoilClick(self, coil):
+        coil.increment_pwm_value()
+    
+    def setup_coils(self, arduino):
+        self.coil1 = Coil("X", 5.5, arduino)
+        self.coil2 = Coil("X", 5.6, arduino)
+        self.coil3 = Coil("Y", 6.2, arduino)
+        self.coil4 = Coil("Y", 6.3, arduino)
+        self.coil5 = Coil("Z", 7.7, arduino)
+        self.coil6 = Coil("Z", 7.5, arduino)
+
 
     def onMagClick(self):
         if self.mag == 0:
