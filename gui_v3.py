@@ -125,7 +125,7 @@ class CameraWidget(QtWidgets.QWidget):
             cv2.rectangle(self.frame, (self.screen_width-190,0), (self.screen_width,50), color=(0,0,0), thickness=-1)
             cv2.putText(self.frame, datetime.now().strftime('%H:%M:%S'), (self.screen_width-185,37), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255,255,255), lineType=cv2.LINE_AA)
             
-            self.add_contours()
+            #self.add_contours()
             
             # Convert to pixmap and set to video frame
             self.img = QtGui.QImage(self.frame, self.frame.shape[1], self.frame.shape[0], QtGui.QImage.Format_RGB888).rgbSwapped()
@@ -211,7 +211,7 @@ class Coil():
     def increment_pwm_value(self):
         self.pwm_value += 1
 
-        string_to_send = f"{self.axis}{self.num}{str(self.pwm_value).zfill(3)}"
+        string_to_send = f"{self.axis}{self.num}{str(self.pwm_value).zfill(3)}\n"
         self.arduino.write(string_to_send.encode())
         print(string_to_send)
     
@@ -337,19 +337,19 @@ class App(QMainWindow):
         screen_height = QtWidgets.QApplication.desktop().screenGeometry().height()
         
         # Stream links
-        camera0 = 1
+        camera0 = 0
         camera1 = 2
         
         # Create camera widgets
         print('Creating Camera Widgets...')
         zero = CameraWidget(screen_width//3, screen_height//3, table, camera0)
-        one = CameraWidget(screen_width//3, screen_height//3, table, camera1)
+        # one = CameraWidget(screen_width//3, screen_height//3, table, camera1)
         while zero.online is False:
               time.sleep(1)
         # Add widgets to layout
         print('Adding widgets to layout...')
         my_grid.addWidget(zero.get_video_frame(),0,0,1,2)
-        my_grid.addWidget(one.get_video_frame(),1,0,1,1)
+        # my_grid.addWidget(one.get_video_frame(),1,0,1,1)
         my_grid.addWidget(table,0,2,1,3)
         my_grid.addLayout(button_grid,0,5,1,2)
         print(my_grid.columnCount())
@@ -362,12 +362,12 @@ class App(QMainWindow):
         coil.increment_pwm_value()
     
     def setup_coils(self, arduino):
-        self.coil1 = Coil("X", 1, 5.5, arduino)
-        self.coil2 = Coil("X", 2, 5.6, arduino)
-        self.coil3 = Coil("Y", 1, 6.2, arduino)
-        self.coil4 = Coil("Y", 2, 6.3, arduino)
-        self.coil5 = Coil("Z", 1, 7.7, arduino)
-        self.coil6 = Coil("Z", 2, 7.5, arduino)
+        self.coil1 = Coil("X", 1, 5.9, arduino)
+        self.coil2 = Coil("X", 2, 6.2, arduino)
+        self.coil3 = Coil("Y", 1, 4.1, arduino)
+        self.coil4 = Coil("Y", 2, 4.0, arduino)
+        self.coil5 = Coil("Z", 1, 5.2, arduino)
+        self.coil6 = Coil("Z", 2, 5.2, arduino)
 
 
     def onMagClick(self):
