@@ -153,7 +153,7 @@ class CameraWidget(QtWidgets.QWidget):
         maskTest = cv2.inRange(hsvTest, black, gray)
         contours, hierarchy = cv2.findContours(maskTest, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         self.positions.clear()
-        for object in enumerate(contours):
+        for object in contours:
             objectArea = cv2.contourArea(object)
             if objectArea > 400:
                 x, y, width, height = cv2.boundingRect(object)
@@ -339,7 +339,7 @@ class App(QMainWindow):
         
         # Stream links
         camera0 = 1
-        camera1 = 2
+        camera1 = 0
         
         # Create camera widgets
         print('Creating Camera Widgets...')
