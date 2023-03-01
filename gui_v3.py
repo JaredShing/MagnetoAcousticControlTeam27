@@ -121,7 +121,7 @@ class CameraWidget(QtWidgets.QWidget):
             else:
                 self.frame = cv2.resize(frame, (self.screen_width, self.screen_height))
 
-            # Add timestamp to cameras (we don't need these timers because it is getting contoured)
+            # Add timestamp to cameras
             # cv2.rectangle(self.frame, (self.screen_width-190,0), (self.screen_width,50), color=(0,0,0), thickness=-1)
             # cv2.putText(self.frame, datetime.now().strftime('%H:%M:%S'), (self.screen_width-185,37), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255,255,255), lineType=cv2.LINE_AA)
             
@@ -153,7 +153,7 @@ class CameraWidget(QtWidgets.QWidget):
         maskTest = cv2.inRange(hsvTest, black, gray)
         contours, hierarchy = cv2.findContours(maskTest, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         self.positions.clear()
-        for object in contours:
+        for object in enumerate(contours):
             objectArea = cv2.contourArea(object)
             if objectArea > 400:
                 x, y, width, height = cv2.boundingRect(object)
@@ -198,8 +198,9 @@ class direction(Enum):
     BACKWARD = -1
 
 class Coil():
-    def __init__(self, axis, resistance, arduino):
+    def __init__(self, axis, num, resistance, arduino):
         self.axis = axis
+        self.num = num
         self.resistance = resistance
         self.voltage = 24
         self.pwm_value = 0
@@ -210,8 +211,10 @@ class Coil():
     # Increase the pwm value being sent to the coil
     def increment_pwm_value(self):
         self.pwm_value += 1
-        self.arduino.write(self.pwm_value)
-        print(self.pwm_value)
+
+        string_to_send = f"{self.axis}{self.num}{str(self.pwm_value).zfill(3)}"
+        self.arduino.write(string_to_send.encode())
+        print(string_to_send)
     
     # return the calculated current value based on the pwm value
     def get_current_value(self):
@@ -336,7 +339,7 @@ class App(QMainWindow):
         
         # Stream links
         camera0 = 1
-        camera1 = 0
+        camera1 = 2
         
         # Create camera widgets
         print('Creating Camera Widgets...')
@@ -364,12 +367,12 @@ class App(QMainWindow):
         print('Acoustic intensity changed value ' + str(self.acoustic))
     
     def setup_coils(self, arduino):
-        self.coil1 = Coil("X", 5.5, arduino)
-        self.coil2 = Coil("X", 5.6, arduino)
-        self.coil3 = Coil("Y", 6.2, arduino)
-        self.coil4 = Coil("Y", 6.3, arduino)
-        self.coil5 = Coil("Z", 7.7, arduino)
-        self.coil6 = Coil("Z", 7.5, arduino)
+        self.coil1 = Coil("X", 1, 5.5, arduino)
+        self.coil2 = Coil("X", 2, 5.6, arduino)
+        self.coil3 = Coil("Y", 1, 6.2, arduino)
+        self.coil4 = Coil("Y", 2, 6.3, arduino)
+        self.coil5 = Coil("Z", 1, 7.7, arduino)
+        self.coil6 = Coil("Z", 2, 7.5, arduino)
 
 
     def onMagClick(self):
@@ -380,7 +383,7 @@ class App(QMainWindow):
         print("Mag = " + str(self.mag))
 
 if __name__ == '__main__':
-
+    
     # Create main application window
     app = QApplication([])
     main_app = App()
