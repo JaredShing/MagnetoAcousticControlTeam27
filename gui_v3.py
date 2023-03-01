@@ -152,13 +152,13 @@ class CameraWidget(QtWidgets.QWidget):
         hsvTest = cv2.cvtColor(dilated, cv2.COLOR_BGR2HSV)
         maskTest = cv2.inRange(hsvTest, black, gray)
         contours, hierarchy = cv2.findContours(maskTest, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for idx, object in enumerate(contours):
+        for object in enumerate(contours):
             objectArea = cv2.contourArea(object)
             if objectArea > 400:
                 x, y, width, height = cv2.boundingRect(object)
                 cv2.rectangle(self.frame, (x, y), (x + width, y + height), (255, 0, 0), 2)
                 cv2.drawContours(self.frame, object, -1, (0, 0, 255), 2)
-                self.positions[idx] = (x,y)
+                self.positions[numObjects] = (x,y)
                 numObjects += 1
                 font = cv2.FONT_HERSHEY_PLAIN
                 midX = x + width / 2
@@ -340,13 +340,13 @@ class App(QMainWindow):
         # Create camera widgets
         print('Creating Camera Widgets...')
         zero = CameraWidget(screen_width//3, screen_height//3, table, camera0)
-        # one = CameraWidget(screen_width//3, screen_height//3, camera1)
+        one = CameraWidget(screen_width//3, screen_height//3, table, camera1)
         while zero.online is False:
               time.sleep(1)
         # Add widgets to layout
         print('Adding widgets to layout...')
         my_grid.addWidget(zero.get_video_frame(),0,0,1,2)
-        # my_grid.addWidget(one.get_video_frame(),1,0,1,1)
+        my_grid.addWidget(one.get_video_frame(),1,0,1,1)
         my_grid.addWidget(table,0,2,1,3)
         my_grid.addLayout(button_grid,0,5,1,2)
         print(my_grid.columnCount())
