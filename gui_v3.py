@@ -121,9 +121,9 @@ class CameraWidget(QtWidgets.QWidget):
             else:
                 self.frame = cv2.resize(frame, (self.screen_width, self.screen_height))
 
-            # Add timestamp to cameras
-            cv2.rectangle(self.frame, (self.screen_width-190,0), (self.screen_width,50), color=(0,0,0), thickness=-1)
-            cv2.putText(self.frame, datetime.now().strftime('%H:%M:%S'), (self.screen_width-185,37), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255,255,255), lineType=cv2.LINE_AA)
+            # Add timestamp to cameras (we don't need these timers because it is getting contoured)
+            # cv2.rectangle(self.frame, (self.screen_width-190,0), (self.screen_width,50), color=(0,0,0), thickness=-1)
+            # cv2.putText(self.frame, datetime.now().strftime('%H:%M:%S'), (self.screen_width-185,37), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255,255,255), lineType=cv2.LINE_AA)
             
             self.add_contours()
             
@@ -152,7 +152,8 @@ class CameraWidget(QtWidgets.QWidget):
         hsvTest = cv2.cvtColor(dilated, cv2.COLOR_BGR2HSV)
         maskTest = cv2.inRange(hsvTest, black, gray)
         contours, hierarchy = cv2.findContours(maskTest, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for object in enumerate(contours):
+        self.positions.clear()
+        for object in contours:
             objectArea = cv2.contourArea(object)
             if objectArea > 400:
                 x, y, width, height = cv2.boundingRect(object)
@@ -197,9 +198,8 @@ class direction(Enum):
     BACKWARD = -1
 
 class Coil():
-    def __init__(self, axis, num, resistance, arduino):
+    def __init__(self, axis, resistance, arduino):
         self.axis = axis
-        self.num = num
         self.resistance = resistance
         self.voltage = 24
         self.pwm_value = 0
@@ -210,10 +210,8 @@ class Coil():
     # Increase the pwm value being sent to the coil
     def increment_pwm_value(self):
         self.pwm_value += 1
-
-        string_to_send = f"{self.axis}{self.num}{str(self.pwm_value).zfill(3)}"
-        self.arduino.write(string_to_send.encode())
-        print(string_to_send)
+        self.arduino.write(self.pwm_value)
+        print(self.pwm_value)
     
     # return the calculated current value based on the pwm value
     def get_current_value(self):
@@ -241,7 +239,7 @@ class App(QMainWindow):
         self.mag = 0
 
         print('Creating Arduino Connection')
-        self.arduino = serial.Serial('COM5',9600) #Create Serial port object called arduinoSerialData
+        self.arduino = serial.Serial('COM7',9600) #Create Serial port object called arduinoSerialData
         self.setup_coils(self.arduino)
 
         self.setWindowTitle("Magneto-Acoustic Control GUI")
@@ -271,13 +269,13 @@ class App(QMainWindow):
         zNegButton.setToolTip('Decrease the z field')
         zNegButton.clicked.connect(partial(self.onCoilClick, self.coil6))
 
-        # acousticPosButton = QPushButton('+', self)
-        # acousticPosButton.setToolTip('Increase Acoustic Field Intensity')
-        # acousticPosButton.clicked.connect(partial(self.onCoilClick, "a", 1))
+        acousticPosButton = QPushButton('+', self)
+        acousticPosButton.setToolTip('Increase Acoustic Field Intensity')
+        acousticPosButton.clicked.connect(partial(self.onAcousticClick, 1))
 
-        # acousticNegButton = QPushButton('-', self)
-        # acousticNegButton.setToolTip('Decrease Acoustic Field Intensity')
-        # acousticNegButton.clicked.connect(partial(self.onCoilClick, "a", -1))
+        acousticNegButton = QPushButton('-', self)
+        acousticNegButton.setToolTip('Decrease Acoustic Field Intensity')
+        acousticNegButton.clicked.connect(partial(self.onAcousticClick, -1))
 
         acousticButton = QPushButton('Acoustics', self)
         acousticButton.setToolTip('Turn on/off acoustics')
@@ -314,9 +312,9 @@ class App(QMainWindow):
         button_grid.addWidget(zLabel,2,1)
         button_grid.addWidget(zNegButton,2,2)
         button_grid.addWidget(acousticButton,3,0)
-        # button_grid.addWidget(acousticPosButton, 4, 0)
+        button_grid.addWidget(acousticPosButton, 4, 0)
         button_grid.addWidget(acousticLabel, 4, 1)
-        # button_grid.addWidget(acousticNegButton, 4, 2)
+        button_grid.addWidget(acousticNegButton, 4, 2)
         button_grid.addWidget(magnificationLabel, 5, 0)
         button_grid.addWidget(magnificationInput, 5, 1, 1, 2)
         
@@ -338,7 +336,7 @@ class App(QMainWindow):
         
         # Stream links
         camera0 = 1
-        camera1 = 2
+        camera1 = 0
         
         # Create camera widgets
         print('Creating Camera Widgets...')
@@ -360,14 +358,18 @@ class App(QMainWindow):
     # when the direction buttons are clicked
     def onCoilClick(self, coil):
         coil.increment_pwm_value()
+
+    def onAcousticClick(self, value):
+        self.acoustic = self.acoustic + value
+        print('Acoustic intensity changed value ' + str(self.acoustic))
     
     def setup_coils(self, arduino):
-        self.coil1 = Coil("X", 1, 5.5, arduino)
-        self.coil2 = Coil("X", 2, 5.6, arduino)
-        self.coil3 = Coil("Y", 1, 6.2, arduino)
-        self.coil4 = Coil("Y", 2, 6.3, arduino)
-        self.coil5 = Coil("Z", 1, 7.7, arduino)
-        self.coil6 = Coil("Z", 2, 7.5, arduino)
+        self.coil1 = Coil("X", 5.5, arduino)
+        self.coil2 = Coil("X", 5.6, arduino)
+        self.coil3 = Coil("Y", 6.2, arduino)
+        self.coil4 = Coil("Y", 6.3, arduino)
+        self.coil5 = Coil("Z", 7.7, arduino)
+        self.coil6 = Coil("Z", 7.5, arduino)
 
 
     def onMagClick(self):
@@ -378,7 +380,7 @@ class App(QMainWindow):
         print("Mag = " + str(self.mag))
 
 if __name__ == '__main__':
-    
+
     # Create main application window
     app = QApplication([])
     main_app = App()
