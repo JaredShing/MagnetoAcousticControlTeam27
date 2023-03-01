@@ -152,13 +152,13 @@ class CameraWidget(QtWidgets.QWidget):
         hsvTest = cv2.cvtColor(dilated, cv2.COLOR_BGR2HSV)
         maskTest = cv2.inRange(hsvTest, black, gray)
         contours, hierarchy = cv2.findContours(maskTest, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for idx, object in enumerate(contours):
+        for object in enumerate(contours):
             objectArea = cv2.contourArea(object)
             if objectArea > 400:
                 x, y, width, height = cv2.boundingRect(object)
                 cv2.rectangle(self.frame, (x, y), (x + width, y + height), (255, 0, 0), 2)
                 cv2.drawContours(self.frame, object, -1, (0, 0, 255), 2)
-                self.positions[idx] = (x,y)
+                self.positions[numObjects] = (x,y)
                 numObjects += 1
                 font = cv2.FONT_HERSHEY_PLAIN
                 midX = x + width / 2
