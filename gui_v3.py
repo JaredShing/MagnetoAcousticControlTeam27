@@ -122,8 +122,8 @@ class CameraWidget(QtWidgets.QWidget):
                 self.frame = cv2.resize(frame, (self.screen_width, self.screen_height))
 
             # Add timestamp to cameras
-            cv2.rectangle(self.frame, (self.screen_width-190,0), (self.screen_width,50), color=(0,0,0), thickness=-1)
-            cv2.putText(self.frame, datetime.now().strftime('%H:%M:%S'), (self.screen_width-185,37), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255,255,255), lineType=cv2.LINE_AA)
+            # cv2.rectangle(self.frame, (self.screen_width-190,0), (self.screen_width,50), color=(0,0,0), thickness=-1)
+            # cv2.putText(self.frame, datetime.now().strftime('%H:%M:%S'), (self.screen_width-185,37), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255,255,255), lineType=cv2.LINE_AA)
             
             #self.add_contours()
             
@@ -152,7 +152,8 @@ class CameraWidget(QtWidgets.QWidget):
         hsvTest = cv2.cvtColor(dilated, cv2.COLOR_BGR2HSV)
         maskTest = cv2.inRange(hsvTest, black, gray)
         contours, hierarchy = cv2.findContours(maskTest, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for object in enumerate(contours):
+        self.positions.clear()
+        for object in contours:
             objectArea = cv2.contourArea(object)
             if objectArea > 400:
                 x, y, width, height = cv2.boundingRect(object)
@@ -214,6 +215,14 @@ class Coil():
         string_to_send = f"{self.axis}{self.num}{str(self.pwm_value).zfill(3)}\n"
         self.arduino.write(string_to_send.encode())
         print(string_to_send)
+
+    # Decrease the pwm value being sent to the coil
+    def decrement_pwm_value(self):
+        self.pwm_value -= 1
+
+        string_to_send = f"{self.axis}{self.num}{str(self.pwm_value).zfill(3)}"
+        self.arduino.write(string_to_send.encode())
+        print(string_to_send)
     
     # return the calculated current value based on the pwm value
     def get_current_value(self):
@@ -238,7 +247,7 @@ class App(QMainWindow):
         self.yPos = 0
         self.zPos = 0
         self.acoustic = 0
-        self.mag = 0
+        self.acousticOnOff = 0
 
         print('Creating Arduino Connection')
         self.arduino = serial.Serial('COM5',9600) #Create Serial port object called arduinoSerialData
@@ -247,78 +256,127 @@ class App(QMainWindow):
         self.setWindowTitle("Magneto-Acoustic Control GUI")
 
         # Create buttons to control magnetics and acoustics
-        xPosButton = QPushButton('+', self)
-        xPosButton.setToolTip('Increase the x field')
-        xPosButton.clicked.connect(partial(self.onCoilClick, self.coil1))
+        x1PosButton = QPushButton('+', self)
+        x1PosButton.setToolTip('Increase the x1 field')
+        x1PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil1))
 
-        xNegButton = QPushButton('-', self)
-        xNegButton.setToolTip('Decrease the x field')
-        xNegButton.clicked.connect(partial(self.onCoilClick, self.coil2))
+        x1NegButton = QPushButton('-', self)
+        x1NegButton.setToolTip('Decrease the x1 field')
+        x1NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil1))
 
-        yPosButton = QPushButton('+', self)
-        yPosButton.setToolTip('Increase the y field')
-        yPosButton.clicked.connect(partial(self.onCoilClick, self.coil3))
+        y1PosButton = QPushButton('+', self)
+        y1PosButton.setToolTip('Increase the y1 field')
+        y1PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil3))
 
-        yNegButton = QPushButton('-', self)
-        yNegButton.setToolTip('Decrease the y field')
-        yNegButton.clicked.connect(partial(self.onCoilClick, self.coil4))
+        y1NegButton = QPushButton('-', self)
+        y1NegButton.setToolTip('Decrease the y1 field')
+        y1NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil3))
 
-        zPosButton = QPushButton('+', self)
-        zPosButton.setToolTip('Increase the z field')
-        zPosButton.clicked.connect(partial(self.onCoilClick, self.coil5))
+        z1PosButton = QPushButton('+', self)
+        z1PosButton.setToolTip('Increase the z1 field')
+        z1PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil5))
 
-        zNegButton = QPushButton('-', self)
-        zNegButton.setToolTip('Decrease the z field')
-        zNegButton.clicked.connect(partial(self.onCoilClick, self.coil6))
+        z1NegButton = QPushButton('-', self)
+        z1NegButton.setToolTip('Decrease the z1 field')
+        z1NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil5))
 
-        # acousticPosButton = QPushButton('+', self)
-        # acousticPosButton.setToolTip('Increase Acoustic Field Intensity')
-        # acousticPosButton.clicked.connect(partial(self.onCoilClick, "a", 1))
+        x2PosButton = QPushButton('+', self)
+        x2PosButton.setToolTip('Increase the x2 field')
+        x2PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil2))
 
-        # acousticNegButton = QPushButton('-', self)
-        # acousticNegButton.setToolTip('Decrease Acoustic Field Intensity')
-        # acousticNegButton.clicked.connect(partial(self.onCoilClick, "a", -1))
+        x2NegButton = QPushButton('-', self)
+        x2NegButton.setToolTip('Decrease the x2 field')
+        x2NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil2))
 
-        acousticButton = QPushButton('Acoustics', self)
+        y2PosButton = QPushButton('+', self)
+        y2PosButton.setToolTip('Increase the y2 field')
+        y2PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil4))
+
+        y2NegButton = QPushButton('-', self)
+        y2NegButton.setToolTip('Decrease the y2 field')
+        y2NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil4))
+
+        z2PosButton = QPushButton('+', self)
+        z2PosButton.setToolTip('Increase the z2 field')
+        z2PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil6))
+
+        z2NegButton = QPushButton('-', self)
+        z2NegButton.setToolTip('Decrease the z2 field')
+        z2NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil6))
+
+        acousticPosButton = QPushButton('+', self)
+        acousticPosButton.setToolTip('Increase Acoustic Field Intensity')
+        acousticPosButton.clicked.connect(partial(self.acousticButtonPress, 'U'))
+
+        acousticNegButton = QPushButton('-', self)
+        acousticNegButton.setToolTip('Decrease Acoustic Field Intensity')
+        acousticNegButton.clicked.connect(partial(self.acousticButtonPress, 'D'))
+
+        acousticButton = QPushButton('Acoustics On/Off', self)
         acousticButton.setToolTip('Turn on/off acoustics')
-        acousticButton.clicked.connect(partial(self.onMagClick))
+        acousticButton.clicked.connect(partial(self.acousticButtonPress, 'E'))
+        acousticButton.setStyleSheet('QPushButton {color: red}')
+        acousticButton.clicked.connect(partial(self.onAcousticClick, acousticButton))
+
+        acousticReset = QPushButton('Acoustic Reset', self)
+        acousticReset.setToolTip('Reset Acoustic Intensity to 0')
+        acousticReset.clicked.connect(partial(self.acousticButtonPress, 'R'))
 
         # Creating the labels for the buttons so direction is clear for user
-        xLabel = QLabel(self)
-        xLabel.setText("x")
-        xLabel.setAlignment(QtCore.Qt.AlignCenter)
-        yLabel = QLabel(self)
-        yLabel.setText("y")
-        yLabel.setAlignment(QtCore.Qt.AlignCenter)
-        zLabel = QLabel(self)
-        zLabel.setText("z")
-        zLabel.setAlignment(QtCore.Qt.AlignCenter)
+        x1Label = QLabel(self)
+        x1Label.setText("x1")
+        x1Label.setAlignment(QtCore.Qt.AlignCenter)
+        y1Label = QLabel(self)
+        y1Label.setText("y1")
+        y1Label.setAlignment(QtCore.Qt.AlignCenter)
+        z1Label = QLabel(self)
+        z1Label.setText("z1")
+        z1Label.setAlignment(QtCore.Qt.AlignCenter)
+        x2Label = QLabel(self)
+        x2Label.setText("x2")
+        x2Label.setAlignment(QtCore.Qt.AlignCenter)
+        y2Label = QLabel(self)
+        y2Label.setText("y2")
+        y2Label.setAlignment(QtCore.Qt.AlignCenter)
+        z2Label = QLabel(self)
+        z2Label.setText("z2")
+        z2Label.setAlignment(QtCore.Qt.AlignCenter)
         acousticLabel = QLabel(self)
-        acousticLabel.setText("Acoustic Intensity")
+        acousticLabel.setText("Acoustic Phase")
         acousticLabel.setAlignment(QtCore.Qt.AlignCenter)
 
          # Creating an input box with label
-        magnificationInput = QLineEdit(self)
-        magnificationLabel = QLabel(self)
-        magnificationLabel.setText("Magnification:")
+        # magnificationInput = QLineEdit(self)
+        # magnificationLabel = QLabel(self)
+        # magnificationLabel.setText("Magnification:")
 
         # Add buttons to a gridlayout within the 2nd column of the main grid
         button_grid = QGridLayout()
-        button_grid.addWidget(xPosButton,0,0)
-        button_grid.addWidget(xLabel,0,1)
-        button_grid.addWidget(xNegButton,0,2)
-        button_grid.addWidget(yPosButton,1,0)
-        button_grid.addWidget(yLabel,1,1)
-        button_grid.addWidget(yNegButton,1,2)
-        button_grid.addWidget(zPosButton,2,0)
-        button_grid.addWidget(zLabel,2,1)
-        button_grid.addWidget(zNegButton,2,2)
-        button_grid.addWidget(acousticButton,3,0)
-        # button_grid.addWidget(acousticPosButton, 4, 0)
-        button_grid.addWidget(acousticLabel, 4, 1)
-        # button_grid.addWidget(acousticNegButton, 4, 2)
-        button_grid.addWidget(magnificationLabel, 5, 0)
-        button_grid.addWidget(magnificationInput, 5, 1, 1, 2)
+        button_grid.addWidget(x1PosButton,0,0)
+        button_grid.addWidget(x1Label,0,1)
+        button_grid.addWidget(x1NegButton,0,2)
+        button_grid.addWidget(y1PosButton,1,0)
+        button_grid.addWidget(y1Label,1,1)
+        button_grid.addWidget(y1NegButton,1,2)
+        button_grid.addWidget(z1PosButton,2,0)
+        button_grid.addWidget(z1Label,2,1)
+        button_grid.addWidget(z1NegButton,2,2)
+        button_grid.addWidget(x2PosButton,3,0)
+        button_grid.addWidget(x2Label,3,1)
+        button_grid.addWidget(x2NegButton,3,2)
+        button_grid.addWidget(y2PosButton,4,0)
+        button_grid.addWidget(y2Label,4,1)
+        button_grid.addWidget(y2NegButton,4,2)
+        button_grid.addWidget(z2PosButton,5,0)
+        button_grid.addWidget(z2Label,5,1)
+        button_grid.addWidget(z2NegButton,5,2)
+        button_grid.addWidget(acousticButton,6,0)
+        button_grid.addWidget(acousticReset, 6, 2)
+        button_grid.addWidget(acousticPosButton, 7, 0)
+        button_grid.addWidget(acousticLabel, 7, 1)
+        button_grid.addWidget(acousticNegButton, 7, 2)
+        # button_grid.addWidget(magnificationLabel, 5, 0)
+        # button_grid.addWidget(magnificationInput, 5, 1, 1, 2)
         
         
         # Create a table widget
@@ -338,7 +396,8 @@ class App(QMainWindow):
         
         # Stream links
         camera0 = 0
-        camera1 = 2
+        camera1 = 1
+
         
         # Create camera widgets
         print('Creating Camera Widgets...')
@@ -358,8 +417,23 @@ class App(QMainWindow):
 
 
     # when the direction buttons are clicked
-    def onCoilClick(self, coil):
+    def onCoilPosClick(self, coil):
         coil.increment_pwm_value()
+
+    def onCoilNegClick(self, coil):
+        coil.decrement_pwm_value()
+
+    # def onAcousticClick(self, value):
+    #     self.acoustic = self.acoustic + value
+    #     print('Acoustic intensity changed value ' + str(self.acoustic))
+
+    # def onResetClick(self):
+    #     self.acoustic = 0
+    #     print("Acoustic = " + str(self.acoustic))
+
+
+    def acousticButtonPress(self, command):
+        self.arduino.write(command.encode())
     
     def setup_coils(self, arduino):
         self.coil1 = Coil("X", 1, 5.9, arduino)
@@ -369,13 +443,16 @@ class App(QMainWindow):
         self.coil5 = Coil("Z", 1, 5.2, arduino)
         self.coil6 = Coil("Z", 2, 5.2, arduino)
 
-
-    def onMagClick(self):
-        if self.mag == 0:
-            self.mag = 1
+    # Turns the acoustic button red and green to represent off and on for
+    # the user to understand the current state
+    def onAcousticClick(self, button):
+        if self.acousticOnOff == 0:
+            self.acousticOnOff = 1 
+            button.setStyleSheet('QPushButton {color: green}')
         else:
-            self.mag = 0
-        print("Mag = " + str(self.mag))
+            self.acousticOnOff = 0 
+            button.setStyleSheet('QPushButton {color: red}')
+        # print("Acoustic Power = " + str(self.acousticOnOff)) # Debugging code
 
 if __name__ == '__main__':
     
