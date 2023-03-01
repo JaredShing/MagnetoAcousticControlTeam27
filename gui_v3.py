@@ -216,8 +216,8 @@ class Coil():
         self.arduino.write(string_to_send.encode())
         print(string_to_send)
 
-    # Decreae the pwm value being sent to the coil
-    def decrease_pwm_value(self):
+    # Decrease the pwm value being sent to the coil
+    def decrement_pwm_value(self):
         self.pwm_value -= 1
 
         string_to_send = f"{self.axis}{self.num}{str(self.pwm_value).zfill(3)}"
@@ -258,51 +258,51 @@ class App(QMainWindow):
         # Create buttons to control magnetics and acoustics
         x1PosButton = QPushButton('+', self)
         x1PosButton.setToolTip('Increase the x1 field')
-        x1PosButton.clicked.connect(partial(self.onCoilClick, self.coil1))
+        x1PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil1))
 
         x1NegButton = QPushButton('-', self)
         x1NegButton.setToolTip('Decrease the x1 field')
-        x1NegButton.clicked.connect(partial(self.onCoilClick, self.coil2))
+        x1NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil1))
 
         y1PosButton = QPushButton('+', self)
         y1PosButton.setToolTip('Increase the y1 field')
-        y1PosButton.clicked.connect(partial(self.onCoilClick, self.coil3))
+        y1PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil3))
 
         y1NegButton = QPushButton('-', self)
         y1NegButton.setToolTip('Decrease the y1 field')
-        y1NegButton.clicked.connect(partial(self.onCoilClick, self.coil4))
+        y1NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil3))
 
         z1PosButton = QPushButton('+', self)
         z1PosButton.setToolTip('Increase the z1 field')
-        z1PosButton.clicked.connect(partial(self.onCoilClick, self.coil5))
+        z1PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil5))
 
         z1NegButton = QPushButton('-', self)
         z1NegButton.setToolTip('Decrease the z1 field')
-        z1NegButton.clicked.connect(partial(self.onCoilClick, self.coil6))
+        z1NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil5))
 
         x2PosButton = QPushButton('+', self)
         x2PosButton.setToolTip('Increase the x2 field')
-        x2PosButton.clicked.connect(partial(self.onCoilClick, self.coil1))
+        x2PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil2))
 
         x2NegButton = QPushButton('-', self)
         x2NegButton.setToolTip('Decrease the x2 field')
-        x2NegButton.clicked.connect(partial(self.onCoilClick, self.coil2))
+        x2NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil2))
 
         y2PosButton = QPushButton('+', self)
         y2PosButton.setToolTip('Increase the y2 field')
-        y2PosButton.clicked.connect(partial(self.onCoilClick, self.coil3))
+        y2PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil4))
 
         y2NegButton = QPushButton('-', self)
         y2NegButton.setToolTip('Decrease the y2 field')
-        y2NegButton.clicked.connect(partial(self.onCoilClick, self.coil4))
+        y2NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil4))
 
         z2PosButton = QPushButton('+', self)
         z2PosButton.setToolTip('Increase the z2 field')
-        z2PosButton.clicked.connect(partial(self.onCoilClick, self.coil5))
+        z2PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil6))
 
         z2NegButton = QPushButton('-', self)
         z2NegButton.setToolTip('Decrease the z2 field')
-        z2NegButton.clicked.connect(partial(self.onCoilClick, self.coil6))
+        z2NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil6))
 
         acousticPosButton = QPushButton('+', self)
         acousticPosButton.setToolTip('Increase Acoustic Field Intensity')
@@ -344,9 +344,9 @@ class App(QMainWindow):
         acousticLabel.setAlignment(QtCore.Qt.AlignCenter)
 
          # Creating an input box with label
-        magnificationInput = QLineEdit(self)
-        magnificationLabel = QLabel(self)
-        magnificationLabel.setText("Magnification:")
+        # magnificationInput = QLineEdit(self)
+        # magnificationLabel = QLabel(self)
+        # magnificationLabel.setText("Magnification:")
 
         # Add buttons to a gridlayout within the 2nd column of the main grid
         button_grid = QGridLayout()
@@ -393,8 +393,8 @@ class App(QMainWindow):
         screen_height = QtWidgets.QApplication.desktop().screenGeometry().height()
         
         # Stream links
-        camera0 = 1
-        camera1 = 0
+        camera0 = 2
+        camera1 = 1
         
         # Create camera widgets
         print('Creating Camera Widgets...')
@@ -414,8 +414,11 @@ class App(QMainWindow):
 
 
     # when the direction buttons are clicked
-    def onCoilClick(self, coil):
+    def onCoilPosClick(self, coil):
         coil.increment_pwm_value()
+
+    def onCoilNegClick(self, coil):
+        coil.decrement_pwm_value()
 
     def onAcousticClick(self, value):
         self.acoustic = self.acoustic + value
