@@ -197,8 +197,9 @@ class direction(Enum):
     BACKWARD = -1
 
 class Coil():
-    def __init__(self, axis, resistance, arduino):
+    def __init__(self, axis, num, resistance, arduino):
         self.axis = axis
+        self.num = num
         self.resistance = resistance
         self.voltage = 24
         self.pwm_value = 0
@@ -209,8 +210,10 @@ class Coil():
     # Increase the pwm value being sent to the coil
     def increment_pwm_value(self):
         self.pwm_value += 1
-        self.arduino.write(self.pwm_value)
-        print(self.pwm_value)
+
+        string_to_send = f"{self.axis}{self.num}{str(self.pwm_value).zfill(3)}"
+        self.arduino.write(string_to_send.encode())
+        print(string_to_send)
     
     # return the calculated current value based on the pwm value
     def get_current_value(self):
@@ -238,7 +241,7 @@ class App(QMainWindow):
         self.mag = 0
 
         print('Creating Arduino Connection')
-        self.arduino = serial.Serial('COM6',9600) #Create Serial port object called arduinoSerialData
+        self.arduino = serial.Serial('COM5',9600) #Create Serial port object called arduinoSerialData
         self.setup_coils(self.arduino)
 
         self.setWindowTitle("Magneto-Acoustic Control GUI")
@@ -334,19 +337,19 @@ class App(QMainWindow):
         screen_height = QtWidgets.QApplication.desktop().screenGeometry().height()
         
         # Stream links
-        camera0 = 0
-        camera1 = 1
+        camera0 = 1
+        camera1 = 2
         
         # Create camera widgets
         print('Creating Camera Widgets...')
         zero = CameraWidget(screen_width//3, screen_height//3, table, camera0)
-        # one = CameraWidget(screen_width//3, screen_height//3, camera1)
+        one = CameraWidget(screen_width//3, screen_height//3, table, camera1)
         while zero.online is False:
               time.sleep(1)
         # Add widgets to layout
         print('Adding widgets to layout...')
         my_grid.addWidget(zero.get_video_frame(),0,0,1,2)
-        # my_grid.addWidget(one.get_video_frame(),1,0,1,1)
+        my_grid.addWidget(one.get_video_frame(),1,0,1,1)
         my_grid.addWidget(table,0,2,1,3)
         my_grid.addLayout(button_grid,0,5,1,2)
         print(my_grid.columnCount())
@@ -359,12 +362,12 @@ class App(QMainWindow):
         coil.increment_pwm_value()
     
     def setup_coils(self, arduino):
-        self.coil1 = Coil("X", 5.5, arduino)
-        self.coil2 = Coil("X", 5.6, arduino)
-        self.coil3 = Coil("Y", 6.2, arduino)
-        self.coil4 = Coil("Y", 6.3, arduino)
-        self.coil5 = Coil("Z", 7.7, arduino)
-        self.coil6 = Coil("Z", 7.5, arduino)
+        self.coil1 = Coil("X", 1, 5.5, arduino)
+        self.coil2 = Coil("X", 2, 5.6, arduino)
+        self.coil3 = Coil("Y", 1, 6.2, arduino)
+        self.coil4 = Coil("Y", 2, 6.3, arduino)
+        self.coil5 = Coil("Z", 1, 7.7, arduino)
+        self.coil6 = Coil("Z", 2, 7.5, arduino)
 
 
     def onMagClick(self):
@@ -375,7 +378,7 @@ class App(QMainWindow):
         print("Mag = " + str(self.mag))
 
 if __name__ == '__main__':
-
+    
     # Create main application window
     app = QApplication([])
     main_app = App()
