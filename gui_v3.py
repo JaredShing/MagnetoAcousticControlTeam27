@@ -284,6 +284,10 @@ class App(QMainWindow):
         acousticButton.setToolTip('Turn on/off acoustics')
         acousticButton.clicked.connect(partial(self.onMagClick))
 
+        acousticReset = QPushButton('Acoustic Reset', self)
+        acousticReset.setToolTip('Reset Acoustic Intensity to 0')
+        acousticReset.clicked.connect(partial(self.onResetClick))
+
         # Creating the labels for the buttons so direction is clear for user
         xLabel = QLabel(self)
         xLabel.setText("x")
@@ -315,11 +319,12 @@ class App(QMainWindow):
         button_grid.addWidget(zLabel,2,1)
         button_grid.addWidget(zNegButton,2,2)
         button_grid.addWidget(acousticButton,3,0)
+        button_grid.addWidget(acousticReset, 3, 2)
         button_grid.addWidget(acousticPosButton, 4, 0)
         button_grid.addWidget(acousticLabel, 4, 1)
         button_grid.addWidget(acousticNegButton, 4, 2)
-        button_grid.addWidget(magnificationLabel, 5, 0)
-        button_grid.addWidget(magnificationInput, 5, 1, 1, 2)
+        # button_grid.addWidget(magnificationLabel, 5, 0)
+        # button_grid.addWidget(magnificationInput, 5, 1, 1, 2)
         
         
         # Create a table widget
@@ -365,6 +370,10 @@ class App(QMainWindow):
     def onAcousticClick(self, value):
         self.acoustic = self.acoustic + value
         print('Acoustic intensity changed value ' + str(self.acoustic))
+
+    def onResetClick(self):
+        self.acoustic = 0
+        print("Acoustic = " + str(self.acoustic))
     
     def setup_coils(self, arduino):
         self.coil1 = Coil("X", 1, 5.5, arduino)
