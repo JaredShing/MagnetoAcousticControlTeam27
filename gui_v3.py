@@ -247,7 +247,7 @@ class App(QMainWindow):
         self.yPos = 0
         self.zPos = 0
         self.acoustic = 0
-        self.mag = 0
+        self.acousticOnOff = 0
 
         print('Creating Arduino Connection')
         self.arduino = serial.Serial('COM7',9600) #Create Serial port object called arduinoSerialData
@@ -306,19 +306,21 @@ class App(QMainWindow):
 
         acousticPosButton = QPushButton('+', self)
         acousticPosButton.setToolTip('Increase Acoustic Field Intensity')
-        acousticPosButton.clicked.connect(partial(self.onAcousticClick, 1))
+        acousticPosButton.clicked.connect(partial(self.acousticButtonPress, 'U'))
 
         acousticNegButton = QPushButton('-', self)
         acousticNegButton.setToolTip('Decrease Acoustic Field Intensity')
-        acousticNegButton.clicked.connect(partial(self.onAcousticClick, -1))
+        acousticNegButton.clicked.connect(partial(self.acousticButtonPress, 'D'))
 
         acousticButton = QPushButton('Acoustics On/Off', self)
         acousticButton.setToolTip('Turn on/off acoustics')
-        acousticButton.clicked.connect(partial(self.onMagClick))
+        acousticButton.clicked.connect(partial(self.acousticButtonPress, 'E'))
+        acousticButton.setStyleSheet('QPushButton {color: red}')
+        acousticButton.clicked.connect(partial(self.onAcousticClick, acousticButton))
 
         acousticReset = QPushButton('Acoustic Reset', self)
         acousticReset.setToolTip('Reset Acoustic Intensity to 0')
-        acousticReset.clicked.connect(partial(self.onResetClick))
+        acousticReset.clicked.connect(partial(self.acousticButtonPress, 'R'))
 
         # Creating the labels for the buttons so direction is clear for user
         x1Label = QLabel(self)
@@ -340,7 +342,7 @@ class App(QMainWindow):
         z2Label.setText("z2")
         z2Label.setAlignment(QtCore.Qt.AlignCenter)
         acousticLabel = QLabel(self)
-        acousticLabel.setText("Acoustic Intensity")
+        acousticLabel.setText("Acoustic Phase")
         acousticLabel.setAlignment(QtCore.Qt.AlignCenter)
 
          # Creating an input box with label
@@ -393,8 +395,8 @@ class App(QMainWindow):
         screen_height = QtWidgets.QApplication.desktop().screenGeometry().height()
         
         # Stream links
-        camera0 = 2
-        camera1 = 1
+        camera0 = 1
+        camera1 = 0
         
         # Create camera widgets
         print('Creating Camera Widgets...')
@@ -420,13 +422,17 @@ class App(QMainWindow):
     def onCoilNegClick(self, coil):
         coil.decrement_pwm_value()
 
-    def onAcousticClick(self, value):
-        self.acoustic = self.acoustic + value
-        print('Acoustic intensity changed value ' + str(self.acoustic))
+    # def onAcousticClick(self, value):
+    #     self.acoustic = self.acoustic + value
+    #     print('Acoustic intensity changed value ' + str(self.acoustic))
 
-    def onResetClick(self):
-        self.acoustic = 0
-        print("Acoustic = " + str(self.acoustic))
+    # def onResetClick(self):
+    #     self.acoustic = 0
+    #     print("Acoustic = " + str(self.acoustic))
+
+
+    def acousticButtonPress(self, command):
+        self.arduino.write(command.encode())
     
     def setup_coils(self, arduino):
         self.coil1 = Coil("X", 1, 5.5, arduino)
@@ -436,13 +442,16 @@ class App(QMainWindow):
         self.coil5 = Coil("Z", 1, 7.7, arduino)
         self.coil6 = Coil("Z", 2, 7.5, arduino)
 
-
-    def onMagClick(self):
-        if self.mag == 0:
-            self.mag = 1
+    # Turns the acoustic button red and green to represent off and on for
+    # the user to understand the current state
+    def onAcousticClick(self, button):
+        if self.acousticOnOff == 0:
+            self.acousticOnOff = 1 
+            button.setStyleSheet('QPushButton {color: green}')
         else:
-            self.mag = 0
-        print("Mag = " + str(self.mag))
+            self.acousticOnOff = 0 
+            button.setStyleSheet('QPushButton {color: red}')
+        # print("Acoustic Power = " + str(self.acousticOnOff)) # Debugging code
 
 if __name__ == '__main__':
     
