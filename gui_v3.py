@@ -306,21 +306,21 @@ class App(QMainWindow):
 
         acousticPosButton = QPushButton('+', self)
         acousticPosButton.setToolTip('Increase Acoustic Field Intensity')
-        acousticPosButton.clicked.connect(partial(self.acousticButtonPress, 'U'))
+        acousticPosButton.clicked.connect(partial(self.acousticButtonPress, "U\n"))
 
         acousticNegButton = QPushButton('-', self)
         acousticNegButton.setToolTip('Decrease Acoustic Field Intensity')
-        acousticNegButton.clicked.connect(partial(self.acousticButtonPress, 'D'))
+        acousticNegButton.clicked.connect(partial(self.acousticButtonPress, "D\n"))
 
         acousticButton = QPushButton('Acoustics On/Off', self)
         acousticButton.setToolTip('Turn on/off acoustics')
-        acousticButton.clicked.connect(partial(self.acousticButtonPress, 'E'))
+        acousticButton.clicked.connect(partial(self.acousticButtonPress, "E\n"))
         acousticButton.setStyleSheet('QPushButton {color: red}')
         acousticButton.clicked.connect(partial(self.onAcousticClick, acousticButton))
 
         acousticReset = QPushButton('Acoustic Reset', self)
         acousticReset.setToolTip('Reset Acoustic Intensity to 0')
-        acousticReset.clicked.connect(partial(self.acousticButtonPress, 'R'))
+        acousticReset.clicked.connect(partial(self.acousticButtonPress, "R\n"))
 
         # Creating the labels for the buttons so direction is clear for user
         x1Label = QLabel(self)
@@ -395,19 +395,19 @@ class App(QMainWindow):
         screen_height = QtWidgets.QApplication.desktop().screenGeometry().height()
         
         # Stream links
-        camera0 = 0
-        camera1 = 1
+        camera0 = 1
+        camera1 = 2
 
         
         # Create camera widgets
         print('Creating Camera Widgets...')
-        zero = CameraWidget(screen_width//3, screen_height//3, table, camera0)
+        # zero = CameraWidget(screen_width//3, screen_height//3, table, camera0)
         # one = CameraWidget(screen_width//3, screen_height//3, table, camera1)
-        while zero.online is False:
-              time.sleep(1)
+        # while zero.online is False:
+        #       time.sleep(1)
         # Add widgets to layout
         print('Adding widgets to layout...')
-        my_grid.addWidget(zero.get_video_frame(),0,0,1,2)
+        # my_grid.addWidget(zero.get_video_frame(),0,0,1,2)
         # my_grid.addWidget(one.get_video_frame(),1,0,1,1)
         my_grid.addWidget(table,0,2,1,3)
         my_grid.addLayout(button_grid,0,5,1,2)
@@ -419,6 +419,8 @@ class App(QMainWindow):
     # when the direction buttons are clicked
     def onCoilPosClick(self, coil):
         coil.increment_pwm_value()
+        text = self.arduino.readline()
+        print(text)
 
     def onCoilNegClick(self, coil):
         coil.decrement_pwm_value()
@@ -434,6 +436,10 @@ class App(QMainWindow):
 
     def acousticButtonPress(self, command):
         self.arduino.write(command.encode())
+        print("clicked")
+        time.sleep(2)
+        text = self.arduino.readline()
+        print(text)
     
     def setup_coils(self, arduino):
         self.coil1 = Coil("X", 1, 5.9, arduino)
