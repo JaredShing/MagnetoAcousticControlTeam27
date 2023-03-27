@@ -247,7 +247,7 @@ class App(QMainWindow):
         self.acousticOnOff = 0
 
         print('Creating Arduino Connection')
-        self.arduino = serial.Serial('COM6',9600) #Create Serial port object called arduinoSerialData
+        self.arduino = serial.Serial('COM9',9600) #Create Serial port object called arduinoSerialData
         self.setup_coils(self.arduino)
 
         self.setWindowTitle("Magneto-Acoustic Control GUI")
@@ -283,17 +283,17 @@ class App(QMainWindow):
             slider.setMinimum(-255)
 
         x1_input.setFixedWidth(50)
-        x1_input.textChanged.connect(partial(self.set_slider, x1_slider))
+        x1_input.textChanged.connect(partial(self.set_slider, x1_slider, self.coil1))
         x2_input.setFixedWidth(50)
-        x2_input.textChanged.connect(partial(self.set_slider, x2_slider))
+        x2_input.textChanged.connect(partial(self.set_slider, x2_slider, self.coil2))
         y1_input.setFixedWidth(50)
-        y1_input.textChanged.connect(partial(self.set_slider, y1_slider))
+        y1_input.textChanged.connect(partial(self.set_slider, y1_slider, self.coil3))
         y2_input.setFixedWidth(50)
-        y2_input.textChanged.connect(partial(self.set_slider, y2_slider))
+        y2_input.textChanged.connect(partial(self.set_slider, y2_slider, self.coil4))
         z1_input.setFixedWidth(50)
-        z1_input.textChanged.connect(partial(self.set_slider, z1_slider))
+        z1_input.textChanged.connect(partial(self.set_slider, z1_slider, self.coil5))
         z2_input.setFixedWidth(50)
-        z2_input.textChanged.connect(partial(self.set_slider, z2_slider))
+        z2_input.textChanged.connect(partial(self.set_slider, z2_slider, self.coil6))
         # Create buttons to control magnetics and acoustics
 
         acousticPosButton = QPushButton('+', self)
@@ -418,10 +418,11 @@ class App(QMainWindow):
         else:
             coil.set_direction(direction.FORWARD)
         print("value changed")
+
         coil.set_pwm(abs(value))
         input.setText(str(value))
 
-    def set_slider(self, slider, text):
+    def set_slider(self, slider, coil, text):
         if text == "":
             value = 0
         elif text.startswith("-"):
@@ -433,6 +434,7 @@ class App(QMainWindow):
         else:
             value = int(text)
         slider.setValue(value)
+        coil.set_pwm(abs(value))
 
     # def onAcousticClick(self, value):
     #     self.acoustic = self.acoustic + value
