@@ -195,38 +195,32 @@ def exit_application():
 
 class direction(Enum):
     FORWARD = 1
-    BACKWARD = -1
+    BACKWARD = 0
 
 class Coil():
-    def __init__(self, axis, num, resistance, arduino):
+    def __init__(self, axis, num, resistance, m, b, arduino):
         self.axis = axis
         self.num = num
         self.resistance = resistance
         self.voltage = 24
         self.pwm_value = 0
         self.PWM_MAX = 255
+        self.current = 0
         self.direction = direction.FORWARD
         self.arduino = arduino
-    
-    # Increase the pwm value being sent to the coil
-    def increment_pwm_value(self):
-        self.pwm_value += 1
+        self.m = m
+        self.b = b
+        self.calc_current()
 
-        string_to_send = f"{self.axis}{self.num}{str(self.pwm_value).zfill(3)}\n"
+    def set_pwm(self, value):
+        string_to_send = f"{self.axis}{self.num}{str(value).zfill(3)}{self.direction}\n"
         self.arduino.write(string_to_send.encode())
         print(string_to_send)
 
-    # Decrease the pwm value being sent to the coil
-    def decrement_pwm_value(self):
-        self.pwm_value -= 1
 
-        string_to_send = f"{self.axis}{self.num}{str(self.pwm_value).zfill(3)}"
-        self.arduino.write(string_to_send.encode())
-        print(string_to_send)
-    
     # return the calculated current value based on the pwm value
     def get_current_value(self):
-        return self.pwm_value/self.PWM_MAX*self.voltage/self.resistance
+        return self.current
 
     # T0 change the direction we send a request to the arduino via serial.
     # The serial request sends the coil axis {x, y, z}, then the direction {f, b}
@@ -237,6 +231,9 @@ class Coil():
             self.arduino.write(f"{self.axis}f".encode())
         else:
             self.arduino.write(f"{self.axis}b".encode())
+
+    def calc_current(self):
+        self.current = self.pwm_value*self.m + self.b
 
 
 class App(QMainWindow):
@@ -250,59 +247,54 @@ class App(QMainWindow):
         self.acousticOnOff = 0
 
         print('Creating Arduino Connection')
-        self.arduino = serial.Serial('COM5',9600) #Create Serial port object called arduinoSerialData
+        self.arduino = serial.Serial('COM6',9600) #Create Serial port object called arduinoSerialData
         self.setup_coils(self.arduino)
 
         self.setWindowTitle("Magneto-Acoustic Control GUI")
 
+        x1_input = QLineEdit()
+        x2_input = QLineEdit()
+        y1_input = QLineEdit()
+        y2_input = QLineEdit()
+        z1_input = QLineEdit()
+        z2_input = QLineEdit()
+
+        x1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        x1_slider.valueChanged[int].connect(partial(self.change_slider, self.coil1, x1_input))
+
+        x2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        x2_slider.valueChanged[int].connect(partial(self.change_slider, self.coil2, x2_input))
+
+        y1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        y1_slider.valueChanged[int].connect(partial(self.change_slider, self.coil3, y1_input))
+
+        y2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        y2_slider.valueChanged[int].connect(partial(self.change_slider, self.coil4, y2_input))
+
+        z1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        z1_slider.valueChanged[int].connect(partial(self.change_slider, self.coil5, z1_input))
+
+        z2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        z2_slider.valueChanged[int].connect(partial(self.change_slider, self.coil6, z2_input))
+
+        sliders = [x1_slider, x2_slider, y1_slider, y2_slider, z1_slider, z2_slider]
+        for slider in sliders:
+            slider.setMaximum(255)
+            slider.setMinimum(-255)
+
+        x1_input.setFixedWidth(50)
+        x1_input.textChanged.connect(partial(self.set_slider, x1_slider))
+        x2_input.setFixedWidth(50)
+        x2_input.textChanged.connect(partial(self.set_slider, x2_slider))
+        y1_input.setFixedWidth(50)
+        y1_input.textChanged.connect(partial(self.set_slider, y1_slider))
+        y2_input.setFixedWidth(50)
+        y2_input.textChanged.connect(partial(self.set_slider, y2_slider))
+        z1_input.setFixedWidth(50)
+        z1_input.textChanged.connect(partial(self.set_slider, z1_slider))
+        z2_input.setFixedWidth(50)
+        z2_input.textChanged.connect(partial(self.set_slider, z2_slider))
         # Create buttons to control magnetics and acoustics
-        x1PosButton = QPushButton('+', self)
-        x1PosButton.setToolTip('Increase the x1 field')
-        x1PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil1))
-
-        x1NegButton = QPushButton('-', self)
-        x1NegButton.setToolTip('Decrease the x1 field')
-        x1NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil1))
-
-        y1PosButton = QPushButton('+', self)
-        y1PosButton.setToolTip('Increase the y1 field')
-        y1PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil3))
-
-        y1NegButton = QPushButton('-', self)
-        y1NegButton.setToolTip('Decrease the y1 field')
-        y1NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil3))
-
-        z1PosButton = QPushButton('+', self)
-        z1PosButton.setToolTip('Increase the z1 field')
-        z1PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil5))
-
-        z1NegButton = QPushButton('-', self)
-        z1NegButton.setToolTip('Decrease the z1 field')
-        z1NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil5))
-
-        x2PosButton = QPushButton('+', self)
-        x2PosButton.setToolTip('Increase the x2 field')
-        x2PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil2))
-
-        x2NegButton = QPushButton('-', self)
-        x2NegButton.setToolTip('Decrease the x2 field')
-        x2NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil2))
-
-        y2PosButton = QPushButton('+', self)
-        y2PosButton.setToolTip('Increase the y2 field')
-        y2PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil4))
-
-        y2NegButton = QPushButton('-', self)
-        y2NegButton.setToolTip('Decrease the y2 field')
-        y2NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil4))
-
-        z2PosButton = QPushButton('+', self)
-        z2PosButton.setToolTip('Increase the z2 field')
-        z2PosButton.clicked.connect(partial(self.onCoilPosClick, self.coil6))
-
-        z2NegButton = QPushButton('-', self)
-        z2NegButton.setToolTip('Decrease the z2 field')
-        z2NegButton.clicked.connect(partial(self.onCoilNegClick, self.coil6))
 
         acousticPosButton = QPushButton('+', self)
         acousticPosButton.setToolTip('Increase Acoustic Field Intensity')
@@ -352,24 +344,29 @@ class App(QMainWindow):
 
         # Add buttons to a gridlayout within the 2nd column of the main grid
         button_grid = QGridLayout()
-        button_grid.addWidget(x1PosButton,0,0)
+        button_grid.addWidget(x1_slider,0,0)
         button_grid.addWidget(x1Label,0,1)
-        button_grid.addWidget(x1NegButton,0,2)
-        button_grid.addWidget(y1PosButton,1,0)
-        button_grid.addWidget(y1Label,1,1)
-        button_grid.addWidget(y1NegButton,1,2)
-        button_grid.addWidget(z1PosButton,2,0)
-        button_grid.addWidget(z1Label,2,1)
-        button_grid.addWidget(z1NegButton,2,2)
-        button_grid.addWidget(x2PosButton,3,0)
-        button_grid.addWidget(x2Label,3,1)
-        button_grid.addWidget(x2NegButton,3,2)
-        button_grid.addWidget(y2PosButton,4,0)
-        button_grid.addWidget(y2Label,4,1)
-        button_grid.addWidget(y2NegButton,4,2)
-        button_grid.addWidget(z2PosButton,5,0)
+        button_grid.addWidget(x1_input,0,2)
+        button_grid.addWidget(x2_slider,1,0)
+        button_grid.addWidget(x2Label,1,1)
+        button_grid.addWidget(x2_input,1,2)
+
+        button_grid.addWidget(y1_slider,2,0)
+        button_grid.addWidget(y1Label,2,1)
+        button_grid.addWidget(y1_input,2,2)
+        button_grid.addWidget(y2_slider,3,0)
+        button_grid.addWidget(y2Label,3,1)
+        button_grid.addWidget(y2_input,3,2)
+
+        
+        button_grid.addWidget(z1_slider,4,0)
+        button_grid.addWidget(z1Label,4,1)
+        button_grid.addWidget(z1_input,4,2)
+        button_grid.addWidget(z2_slider,5,0)
         button_grid.addWidget(z2Label,5,1)
-        button_grid.addWidget(z2NegButton,5,2)
+        button_grid.addWidget(z2_input,5,2)
+
+        
         button_grid.addWidget(acousticButton,6,0)
         button_grid.addWidget(acousticReset, 6, 2)
         button_grid.addWidget(acousticPosButton, 7, 0)
@@ -415,15 +412,27 @@ class App(QMainWindow):
         
         print('Verifying camera work correctly')
 
+    def change_slider(self, coil, input, value):
+        if (value < 0):
+            coil.set_direction(direction.BACKWARD)
+        else:
+            coil.set_direction(direction.FORWARD)
+        print("value changed")
+        coil.set_pwm(abs(value))
+        input.setText(str(value))
 
-    # when the direction buttons are clicked
-    def onCoilPosClick(self, coil):
-        coil.increment_pwm_value()
-        text = self.arduino.readline()
-        print(text)
-
-    def onCoilNegClick(self, coil):
-        coil.decrement_pwm_value()
+    def set_slider(self, slider, text):
+        if text == "":
+            value = 0
+        elif text.startswith("-"):
+            value_str = text[1:]
+            if len(value_str) > 0:
+                value = -int(value_str)
+            else:
+                value = 0
+        else:
+            value = int(text)
+        slider.setValue(value)
 
     # def onAcousticClick(self, value):
     #     self.acoustic = self.acoustic + value
@@ -442,12 +451,26 @@ class App(QMainWindow):
         print(text)
     
     def setup_coils(self, arduino):
-        self.coil1 = Coil("X", 1, 5.9, arduino)
-        self.coil2 = Coil("X", 2, 6.2, arduino)
-        self.coil3 = Coil("Y", 1, 4.1, arduino)
-        self.coil4 = Coil("Y", 2, 4.0, arduino)
-        self.coil5 = Coil("Z", 1, 5.2, arduino)
-        self.coil6 = Coil("Z", 2, 5.2, arduino)
+        m = [0.009874387,
+            0.010136336,
+            0.013625919,
+            0.013743873,
+            0.016740196,
+            0.016591605]
+        x = [-0.061568627,
+            -0.063333333,
+            -0.094705882,
+            -0.082156863,
+            -0.090980392,
+            -0.090196078]
+        r = [9.3, 8.9, 6.7, 6.8, 5.5, 5.5]
+
+        self.coil1 = Coil("X", 1, r[0], m[0], x[0], arduino)
+        self.coil2 = Coil("X", 2, r[1], m[1], x[1], arduino)
+        self.coil3 = Coil("Y", 1, r[2], m[2], x[2], arduino)
+        self.coil4 = Coil("Y", 2, r[3], m[3], x[3], arduino)
+        self.coil5 = Coil("Z", 1, r[4], m[4], x[4], arduino)
+        self.coil6 = Coil("Z", 2, r[5], m[5], x[5], arduino)
 
     # Turns the acoustic button red and green to represent off and on for
     # the user to understand the current state
