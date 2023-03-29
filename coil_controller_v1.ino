@@ -24,11 +24,12 @@
 #define phase_down 13
 
 
-const byte numChars = 6; // Form "X1001\n"
+const byte numChars = 7; // Form "X10010\n"
 char receivedChars[numChars];   // an array to store the received data
 boolean newData = false;
 char coil_name;
 char coil_num;
+char coil_dir;
 String pwm_read;
 bool enable_state = 0;
 
@@ -126,10 +127,21 @@ void loop()
       Serial.println("enable_state");
     }else if (coil_name == 'X'){
       if (coil_num == '1'){
+        if  (coil_dir == '1'){
+          coil_1.set_dir(1);
+        }else{
+          coil_1.set_dir(0);
+        }
         coil_1.set_pwm(pwm_read.toInt());
+
         Serial.print("X Coil 1: ");
         Serial.println(pwm_read);
       }else{
+        if  (coil_dir == '1'){
+          coil_2.set_dir(1);
+        }else{
+          coil_2.set_dir(0);
+        }
         coil_2.set_pwm(pwm_read.toInt());
         Serial.print("X Coil 2: ");
         Serial.println(pwm_read);
@@ -137,10 +149,20 @@ void loop()
       
     }else if(coil_name == 'Y'){
       if (coil_num == '1'){
+        if  (coil_dir == '1'){
+          coil_3.set_dir(1);
+        }else{
+          coil_3.set_dir(0);
+        }
         coil_3.set_pwm(pwm_read.toInt());
         Serial.print("Y Coil 1: ");
         Serial.println(pwm_read);
       }else{
+        if  (coil_dir == '1'){
+          coil_4.set_dir(1);
+        }else{
+          coil_4.set_dir(0);
+        }
         coil_4.set_pwm(pwm_read.toInt());
         Serial.print("Y Coil 2: ");
         Serial.println(pwm_read);
@@ -148,10 +170,20 @@ void loop()
 
     }else if(coil_name == 'Z'){
       if (coil_num == '1'){
+        if  (coil_dir == '1'){
+          coil_5.set_dir(1);
+        }else{
+          coil_5.set_dir(0);
+        }
         coil_5.set_pwm(pwm_read.toInt());
         Serial.print("Z Coil 1: ");
         Serial.println(pwm_read);
       }else{
+        if  (coil_dir == '1'){
+          coil_6.set_dir(1);
+        }else{
+          coil_6.set_dir(0);
+        }
         coil_6.set_pwm(pwm_read.toInt());
         Serial.print("Z Coil 2: ");
         Serial.println(pwm_read);

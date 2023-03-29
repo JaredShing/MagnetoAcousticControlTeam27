@@ -13,6 +13,11 @@ import serial
 from enum import Enum
 from PyQt5.QtWidgets import QLineEdit
 from PyQt5 import QtCore
+import win32api
+import time
+import pyautogui as pg
+from PyQt5.QtGui import QPainter, QColor, QPen
+from PyQt5.QtCore import Qt
 
 # This code starts 2 cameras on separate threads to prevent frame lag
 class CameraWidget(QtWidgets.QWidget):
@@ -52,7 +57,16 @@ class CameraWidget(QtWidgets.QWidget):
         self.timer.timeout.connect(self.set_frame)
         self.timer.start(1)
 
+        self.clickPos1 = None
+        self.clickPos2 = None
+        self.magButton = False
+        self.state_left = win32api.GetKeyState(0x01)
+        self.calinrationX = 0
+        self.calibrationY = 0
+
         print('Started camera: {}'.format(self.camera_stream_link))
+
+        self.painter = QPainter(self)
 
     def load_network_stream(self):
         """Verifies stream link and open new stream if valid"""
@@ -93,6 +107,27 @@ class CameraWidget(QtWidgets.QWidget):
                     self.load_network_stream()
                     self.spin(2)
                 self.spin(.001)
+
+                if self.magButton:
+                    # print("INSIDE!")
+                    a = win32api.GetKeyState(0x01)
+                        
+                    if a != self.state_left:  # Button state changed 
+                        # print("Mouse Clicked?")
+                        self.state_left = a 
+                        if a < 0: 
+                            if self.clickPos1 is None:
+                                self.clickPos1 = pg.position()
+                            elif self.clickPos2 is None:
+                                self.clickPos2 = pg.position()
+                                self.calibrationX = self.clickPos1.x - self.clickPos2.x
+                                self.calibrationY = self.clickPos1.y - self.clickPos2.y
+                                print(self.clickPos1.y - self.clickPos2.y)
+                                print('Mag Button was set to False')
+                                self.clickPos1 = None
+                                self.clickPos2 = None
+                                self.magButton = False
+
             except AttributeError:
                 pass
 
@@ -337,8 +372,8 @@ class App(QMainWindow):
 
          # Creating an input box with label
         # magnificationInput = QLineEdit(self)
-        # magnificationLabel = QLabel(self)
-        # magnificationLabel.setText("Magnification:")
+        magnificationLabel = QLabel(self)
+        magnificationLabel.setText("Magnification:")
 
         # Add buttons to a gridlayout within the 2nd column of the main grid
         button_grid = QGridLayout()
@@ -370,8 +405,8 @@ class App(QMainWindow):
         button_grid.addWidget(acousticPosButton, 7, 0)
         button_grid.addWidget(acousticLabel, 7, 1)
         button_grid.addWidget(acousticNegButton, 7, 2)
-        # button_grid.addWidget(magnificationLabel, 5, 0)
-        # button_grid.addWidget(magnificationInput, 5, 1, 1, 2)
+        button_grid.addWidget(magnificationLabel, 8, 0)
+        # button_grid.addWidget(magnificationInput, 8, 1, 1, 2)
         
         
         # Create a table widget
@@ -390,28 +425,38 @@ class App(QMainWindow):
         screen_height = QtWidgets.QApplication.desktop().screenGeometry().height()
         
         # Stream links
-        camera0 = 1
-        camera1 = 2
+        camera0 = 0
+        camera1 = 1
 
         
         # Create camera widgets
         print('Creating Camera Widgets...')
-        # zero = CameraWidget(screen_width//3, screen_height//3, table, camera0)
-        # one = CameraWidget(screen_width//3, screen_height//3, table, camera1)
+        self.zero = CameraWidget(screen_width//3, screen_height//3, table, camera0)
+        self.one = CameraWidget(screen_width//3, screen_height//3, table, camera1)
         # while zero.online is False:
         #       time.sleep(1)
         # Add widgets to layout
+
+        # Create magnification button
+        magnificationButton = QPushButton('Calibrate Magnification', self)
+        magnificationButton.setToolTip('Calibration Button')
+        magnificationButton.clicked.connect(partial(self.setDistance, self.zero))
+        button_grid.addWidget(magnificationButton, 8, 1)
+
         print('Adding widgets to layout...')
-        # my_grid.addWidget(zero.get_video_frame(),0,0,1,2)
-        # my_grid.addWidget(one.get_video_frame(),1,0,1,1)
+        my_grid.addWidget(self.zero.get_video_frame(),0,0,1,2)
+        my_grid.addWidget(self.one.get_video_frame(),1,0,1,1)
         my_grid.addWidget(table,0,2,1,3)
         my_grid.addLayout(button_grid,0,5,1,2)
         print(my_grid.columnCount())
         
         print('Verifying camera work correctly')
 
-    def change_slider(self, coil, input, slider):
-        value = slider.value()
+    def setDistance(self, cameraView):
+        cameraView.magButton = True
+        print("magButton was set to True")
+
+    def change_slider(self, coil, input, value):
         if (value < 0):
             coil.set_direction(0)
         else:
