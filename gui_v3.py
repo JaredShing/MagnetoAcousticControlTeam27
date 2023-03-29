@@ -193,10 +193,6 @@ def exit_application():
     """Exit program event handler"""
     sys.exit(1)
 
-class direction(Enum):
-    FORWARD = 1
-    BACKWARD = 0
-
 class Coil():
     def __init__(self, axis, num, resistance, m, b, arduino):
         self.axis = axis
@@ -206,7 +202,7 @@ class Coil():
         self.pwm_value = 0
         self.PWM_MAX = 255
         self.current = 0
-        self.direction = direction.FORWARD
+        self.direction = 1
         self.arduino = arduino
         self.m = m
         self.b = b
@@ -227,10 +223,6 @@ class Coil():
     # Foe example to change coil 1 forward, the request is "Xf"
     def set_direction(self, direction_request):
         self.direction = direction_request
-        if self.direction == direction.BACKWARD:
-            self.arduino.write(f"{self.axis}f".encode())
-        else:
-            self.arduino.write(f"{self.axis}b".encode())
 
     def calc_current(self):
         self.current = self.pwm_value*self.m + self.b
@@ -247,7 +239,7 @@ class App(QMainWindow):
         self.acousticOnOff = 0
 
         print('Creating Arduino Connection')
-        self.arduino = serial.Serial('COM9',9600) #Create Serial port object called arduinoSerialData
+        self.arduino = serial.Serial('COM5',9600) #Create Serial port object called arduinoSerialData
         self.setup_coils(self.arduino)
 
         self.setWindowTitle("Magneto-Acoustic Control GUI")
@@ -260,22 +252,22 @@ class App(QMainWindow):
         z2_input = QLineEdit()
 
         x1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        x1_slider.valueChanged[int].connect(partial(self.change_slider, self.coil1, x1_input))
+        x1_slider.sliderReleased.connect(partial(self.change_slider, self.coil1, x1_input, x1_slider))
 
         x2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        x2_slider.valueChanged[int].connect(partial(self.change_slider, self.coil2, x2_input))
+        x2_slider.sliderReleased.connect(partial(self.change_slider, self.coil2, x2_input, x2_slider))
 
         y1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        y1_slider.valueChanged[int].connect(partial(self.change_slider, self.coil3, y1_input))
+        y1_slider.sliderReleased.connect(partial(self.change_slider, self.coil3, y1_input, y1_slider))
 
         y2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        y2_slider.valueChanged[int].connect(partial(self.change_slider, self.coil4, y2_input))
+        y2_slider.sliderReleased.connect(partial(self.change_slider, self.coil4, y2_input, y2_slider))
 
         z1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        z1_slider.valueChanged[int].connect(partial(self.change_slider, self.coil5, z1_input))
+        z1_slider.sliderReleased.connect(partial(self.change_slider, self.coil5, z1_input, z1_slider))
 
         z2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        z2_slider.valueChanged[int].connect(partial(self.change_slider, self.coil6, z2_input))
+        z2_slider.sliderReleased.connect(partial(self.change_slider, self.coil6, z2_input, z2_slider))
 
         sliders = [x1_slider, x2_slider, y1_slider, y2_slider, z1_slider, z2_slider]
         for slider in sliders:
@@ -283,17 +275,23 @@ class App(QMainWindow):
             slider.setMinimum(-255)
 
         x1_input.setFixedWidth(50)
-        x1_input.textChanged.connect(partial(self.set_slider, x1_slider, self.coil1))
+        x1_input.returnPressed.connect(partial(self.set_slider, x1_slider, x1_input, self.coil1))
+        x1_input.editingFinished.connect(partial(self.set_slider, x1_slider, x1_input, self.coil1))
         x2_input.setFixedWidth(50)
-        x2_input.textChanged.connect(partial(self.set_slider, x2_slider, self.coil2))
+        x2_input.returnPressed.connect(partial(self.set_slider, x2_slider, x2_input, self.coil2))
+        x2_input.editingFinished.connect(partial(self.set_slider, x2_slider, x2_input, self.coil2))
         y1_input.setFixedWidth(50)
-        y1_input.textChanged.connect(partial(self.set_slider, y1_slider, self.coil3))
+        y1_input.returnPressed.connect(partial(self.set_slider, y1_slider, y1_input, self.coil3))
+        y1_input.editingFinished.connect(partial(self.set_slider, y1_slider, y1_input, self.coil3))
         y2_input.setFixedWidth(50)
-        y2_input.textChanged.connect(partial(self.set_slider, y2_slider, self.coil4))
+        y2_input.returnPressed.connect(partial(self.set_slider, y2_slider, y2_input, self.coil4))
+        y2_input.editingFinished.connect(partial(self.set_slider, y2_slider, y2_input, self.coil4))
         z1_input.setFixedWidth(50)
-        z1_input.textChanged.connect(partial(self.set_slider, z1_slider, self.coil5))
+        z1_input.returnPressed.connect(partial(self.set_slider, z1_slider, z1_input, self.coil5))
+        z1_input.editingFinished.connect(partial(self.set_slider, z1_slider, z1_input, self.coil5))
         z2_input.setFixedWidth(50)
-        z2_input.textChanged.connect(partial(self.set_slider, z2_slider, self.coil6))
+        z2_input.returnPressed.connect(partial(self.set_slider, z2_slider, z2_input, self.coil6))
+        z2_input.editingFinished.connect(partial(self.set_slider, z2_slider, z2_input, self.coil6))
         # Create buttons to control magnetics and acoustics
 
         acousticPosButton = QPushButton('+', self)
@@ -412,26 +410,30 @@ class App(QMainWindow):
         
         print('Verifying camera work correctly')
 
-    def change_slider(self, coil, input, value):
+    def change_slider(self, coil, input, slider):
+        value = slider.value()
         if (value < 0):
-            coil.set_direction(direction.BACKWARD)
+            coil.set_direction(0)
         else:
-            coil.set_direction(direction.FORWARD)
+            coil.set_direction(1)
         print("value changed")
 
         coil.set_pwm(abs(value))
         input.setText(str(value))
 
-    def set_slider(self, slider, coil, text):
+    def set_slider(self, slider, input, coil):
+        text = input.text()
         if text == "":
             value = 0
         elif text.startswith("-"):
+            coil.set_direction(0)
             value_str = text[1:]
             if len(value_str) > 0:
                 value = -int(value_str)
             else:
                 value = 0
         else:
+            coil.set_direction(1)
             value = int(text)
         slider.setValue(value)
         coil.set_pwm(abs(value))
