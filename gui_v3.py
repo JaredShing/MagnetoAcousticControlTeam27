@@ -431,8 +431,8 @@ class App(QMainWindow):
         
         # Create camera widgets
         print('Creating Camera Widgets...')
-        self.zero = CameraWidget(screen_width//3, screen_height//3, table, camera0)
-        self.one = CameraWidget(screen_width//3, screen_height//3, table, camera1)
+        # self.zero = CameraWidget(screen_width//3, screen_height//3, table, camera0)
+        # self.one = CameraWidget(screen_width//3, screen_height//3, table, camera1)
         # while zero.online is False:
         #       time.sleep(1)
         # Add widgets to layout
@@ -440,12 +440,12 @@ class App(QMainWindow):
         # Create magnification button
         magnificationButton = QPushButton('Calibrate Magnification', self)
         magnificationButton.setToolTip('Calibration Button')
-        magnificationButton.clicked.connect(partial(self.setDistance, self.zero))
+        # magnificationButton.clicked.connect(partial(self.setDistance, self.zero))
         button_grid.addWidget(magnificationButton, 8, 1)
 
         print('Adding widgets to layout...')
-        my_grid.addWidget(self.zero.get_video_frame(),0,0,1,2)
-        my_grid.addWidget(self.one.get_video_frame(),1,0,1,1)
+        # my_grid.addWidget(self.zero.get_video_frame(),0,0,1,2)
+        # my_grid.addWidget(self.one.get_video_frame(),1,0,1,1)
         my_grid.addWidget(table,0,2,1,3)
         my_grid.addLayout(button_grid,0,5,1,2)
         print(my_grid.columnCount())
@@ -456,7 +456,8 @@ class App(QMainWindow):
         cameraView.magButton = True
         print("magButton was set to True")
 
-    def change_slider(self, coil, input, value):
+    def change_slider(self, coil, input, slider):
+        value = slider.value()
         if (value < 0):
             coil.set_direction(0)
         else:
