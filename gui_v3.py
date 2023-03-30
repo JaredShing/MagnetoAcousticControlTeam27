@@ -1,5 +1,5 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QWidget, QMainWindow, QApplication, QLabel, QVBoxLayout, QPushButton, QGridLayout
+from PyQt5.QtWidgets import QWidget, QMainWindow, QApplication, QLabel, QVBoxLayout, QPushButton, QGridLayout, QComboBox
 from threading import Thread
 from collections import deque
 from datetime import datetime
@@ -279,6 +279,15 @@ class App(QMainWindow):
 
         self.setWindowTitle("Magneto-Acoustic Control GUI")
 
+        self.camera0ComboBox = QComboBox()
+        self.availableCameras = self.returnCameraIndexes()
+        print("Avaiable Camreas")
+        print(self.availableCameras)
+        self.camera0ComboBox.addItem("Select Camera")
+        for i in self.availableCameras:
+            self.camera0ComboBox.addItem("Camera " + str(i))
+        self.camera0ComboBox.currentIndexChanged.connect(self.camera0Change)
+
         x1_input = QLineEdit()
         x2_input = QLineEdit()
         y1_input = QLineEdit()
@@ -406,6 +415,8 @@ class App(QMainWindow):
         button_grid.addWidget(acousticLabel, 7, 1)
         button_grid.addWidget(acousticNegButton, 7, 2)
         button_grid.addWidget(magnificationLabel, 8, 0)
+
+        button_grid.addWidget(self.camera0ComboBox, 9, 0)
         # button_grid.addWidget(magnificationInput, 8, 1, 1, 2)
         
         
@@ -416,8 +427,8 @@ class App(QMainWindow):
         table.setHorizontalHeaderLabels(["Index","X Pos", "Y Pos"])
 
         cw = QtWidgets.QWidget()
-        my_grid = QtWidgets.QGridLayout()
-        cw.setLayout(my_grid)
+        self.my_grid = QtWidgets.QGridLayout()
+        cw.setLayout(self.my_grid)
         self.setCentralWidget(cw)
         
         # Dynamically determine screen width/height
@@ -425,14 +436,14 @@ class App(QMainWindow):
         screen_height = QtWidgets.QApplication.desktop().screenGeometry().height()
         
         # Stream links
-        camera0 = 2
-        camera1 = 1
+        self.camera0 = 2
+        self.camera1 = 1
 
         
         # Create camera widgets
         print('Creating Camera Widgets...')
-        # self.zero = CameraWidget(screen_width//3, screen_height//3, table, camera0)
-        # self.one = CameraWidget(screen_width//3, screen_height//3, table, camera1)
+        # self.zero = CameraWidget(screen_width//3, screen_height//3, table, self.camera0)
+        # self.one = CameraWidget(screen_width//3, screen_height//3, table, self.camera1)
         # while zero.online is False:
         #       time.sleep(1)
         # Add widgets to layout
@@ -446,11 +457,41 @@ class App(QMainWindow):
         print('Adding widgets to layout...')
         # my_grid.addWidget(self.zero.get_video_frame(),0,0,1,2)
         # my_grid.addWidget(self.one.get_video_frame(),1,0,1,1)
-        my_grid.addWidget(table,0,2,1,3)
-        my_grid.addLayout(button_grid,0,5,1,2)
+        self.my_grid.addWidget(table,0,2,1,3)
+        self.my_grid.addLayout(button_grid,0,5,1,2)
         print(my_grid.columnCount())
         
         print('Verifying camera work correctly')
+
+    def returnCameraIndexes():
+        # checks the first 10 indexes.
+        index = 0
+        arr = []
+        i = 10
+        while i > 0:
+            cap = cv2.VideoCapture(index)
+            if cap.read()[0]:
+                arr.append(index)
+                cap.release()
+            index += 1
+            i -= 1
+        if arr:
+            arr.pop(-1)
+        return arr
+    
+    # def camera0Change(self, s):
+    #     # print("Text changed:", s)
+    #     print("View 0 was changed to " + s)
+
+    def camera0Change(self, index):
+        # print("Text changed:", s)
+        print("View 1 was changed to " + str(index - 1))
+        if self.camera0 is not None:
+            self.my_grid.removeWidget(self.zero.get_video_frame())
+        self.camera0 = self.availableCameras[index - 1]
+        # self.zero = CameraWidget(self.screen_width//3, self.screen_height//3, self.table, self.camera0)
+        self.zero = CameraWidget(self.screen_width//3, self.screen_height//3, self.camera0)
+        self.my_grid.addWidget(self.zero.get_video_frame(),0,0,1,1)
 
     def setDistance(self, cameraView):
         cameraView.magButton = True
