@@ -99,6 +99,8 @@ void loop()
     pwm_read = String(receivedChars).substring(2,5);
     coil_name = receivedChars[0];
     coil_num = receivedChars[1];
+    coil_dir = receivedChars[5];
+    Serial.println(coil_dir);
     
     if (receivedChars[0] == 'U'){
       // Increase Phase
