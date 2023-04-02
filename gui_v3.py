@@ -432,8 +432,8 @@ class App(QMainWindow):
         self.setCentralWidget(cw)
         
         # Dynamically determine screen width/height
-        screen_width = QtWidgets.QApplication.desktop().screenGeometry().width()
-        screen_height = QtWidgets.QApplication.desktop().screenGeometry().height()
+        self.screen_width = QtWidgets.QApplication.desktop().screenGeometry().width()
+        self.screen_height = QtWidgets.QApplication.desktop().screenGeometry().height()
         
         # Stream links
         self.camera0 = 2
@@ -459,11 +459,11 @@ class App(QMainWindow):
         # my_grid.addWidget(self.one.get_video_frame(),1,0,1,1)
         self.my_grid.addWidget(table,0,2,1,3)
         self.my_grid.addLayout(button_grid,0,5,1,2)
-        print(my_grid.columnCount())
+        print(self.my_grid.columnCount())
         
         print('Verifying camera work correctly')
 
-    def returnCameraIndexes():
+    def returnCameraIndexes(self):
         # checks the first 10 indexes.
         index = 0
         arr = []
