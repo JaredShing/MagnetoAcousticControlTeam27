@@ -59,6 +59,10 @@ class CameraWidget(QtWidgets.QWidget):
 
         self.clickPos1 = None
         self.clickPos2 = None
+        self.cPos1X = None
+        self.cPos1Y = None
+        self.cPos2X = None
+        self.cPos2Y = None
         self.magButton = False
         self.state_left = win32api.GetKeyState(0x01)
         self.calinrationX = 0
@@ -120,6 +124,10 @@ class CameraWidget(QtWidgets.QWidget):
                                 self.clickPos1 = pg.position()
                             elif self.clickPos2 is None:
                                 self.clickPos2 = pg.position()
+                                self.cPos1X = self.clickPos1.x
+                                self.cPos1Y = self.clickPos1.y
+                                self.cPos2X = self.clickPos2.x
+                                self.cPos2Y = self.clickPos2.y
                                 self.calibrationX = self.clickPos1.x - self.clickPos2.x
                                 self.calibrationY = self.clickPos1.y - self.clickPos2.y
                                 print(self.clickPos1.y - self.clickPos2.y)
@@ -155,6 +163,17 @@ class CameraWidget(QtWidgets.QWidget):
             # Force resize
             else:
                 self.frame = cv2.resize(frame, (self.screen_width, self.screen_height))
+
+            # Add green line to indicte clicked point
+            if self.cPos2Y is not None:
+                print("TESTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTING")
+                print(self.cPos1X)
+                print(self.cPos1Y)
+                print(self.cPos2X)
+                print(self.cPos2Y)
+                cv2.line(self.frame, (self.cPos1X, self.cPos1Y), (self.cPos2X, self.cPos2Y), color=(0,255,0), thickness = 2)
+
+            cv2.line(self.frame, (0, 100), (100, 200), color = (0, 255, 0), thickness = 2)
 
             # Add timestamp to cameras
             # cv2.rectangle(self.frame, (self.screen_width-190,0), (self.screen_width,50), color=(0,0,0), thickness=-1)
@@ -466,10 +485,14 @@ class App(QMainWindow):
         # Add widgets to layout
 
         # Create magnification button
-        magnificationButton = QPushButton('Calibrate Magnification', self)
-        magnificationButton.setToolTip('Calibration Button')
-        magnificationButton.clicked.connect(partial(self.setDistance, self.zero))
-        button_grid.addWidget(magnificationButton, 8, 1)
+
+        self.magnificationButton = QPushButton('Calibrate Magnification', self)
+        self.magnificationButton.setToolTip('Calibration Button')
+        # Commenting this out because I think it needs to be self.magnficiationButton
+        # magnificationButton = QPushButton('Calibrate Magnification', self)
+        # magnificationButton.setToolTip('Calibration Button')
+        # magnificationButton.clicked.connect(partial(self.setDistance, self.zero))
+        button_grid.addWidget(self.magnificationButton, 8, 1)
 
         print('Adding widgets to layout...')
         if self.zero is not None:
@@ -513,6 +536,7 @@ class App(QMainWindow):
         self.camera0 = self.availableCameras[index - 1]
         self.zero = CameraWidget(self.screen_width//3, self.screen_height//3, self.table, self.camera0)
         self.my_grid.addWidget(self.zero.get_video_frame(),0,0,1,2)
+        self.magnificationButton.clicked.connect(partial(self.setDistance, self.zero))
 
     def camera1Change(self, index):
         # print("Text changed:", s)
