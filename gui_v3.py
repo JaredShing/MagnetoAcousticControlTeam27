@@ -16,7 +16,7 @@ from PyQt5 import QtCore
 import win32api
 import time
 import pyautogui as pg
-from PyQt5.QtGui import QPainter, QColor, QPen
+# from PyQt5.QtGui import QPainter, QColor, QPen
 from PyQt5.QtCore import Qt
 
 # This code starts 2 cameras on separate threads to prevent frame lag
@@ -66,7 +66,7 @@ class CameraWidget(QtWidgets.QWidget):
 
         print('Started camera: {}'.format(self.camera_stream_link))
 
-        self.painter = QPainter(self)
+        # self.painter = QPainter(self)
 
     def load_network_stream(self):
         """Verifies stream link and open new stream if valid"""
@@ -274,7 +274,7 @@ class App(QMainWindow):
         self.acousticOnOff = 0
 
         print('Creating Arduino Connection')
-        self.arduino = serial.Serial('COM5',9600) #Create Serial port object called arduinoSerialData
+        self.arduino = serial.Serial('COM9',9600) #Create Serial port object called arduinoSerialData
         self.setup_coils(self.arduino)
 
         self.setWindowTitle("Magneto-Acoustic Control GUI")
@@ -287,6 +287,12 @@ class App(QMainWindow):
         for i in self.availableCameras:
             self.camera0ComboBox.addItem("Camera " + str(i))
         self.camera0ComboBox.currentIndexChanged.connect(self.camera0Change)
+
+        self.camera1ComboBox = QComboBox()
+        self.camera1ComboBox.addItem("Select Camera")
+        for i in self.availableCameras:
+            self.camera1ComboBox.addItem("Camera " + str(i))
+        self.camera1ComboBox.currentIndexChanged.connect(self.camera1Change)
 
         x1_input = QLineEdit()
         x2_input = QLineEdit()
@@ -378,6 +384,10 @@ class App(QMainWindow):
         acousticLabel = QLabel(self)
         acousticLabel.setText("Acoustic Phase")
         acousticLabel.setAlignment(QtCore.Qt.AlignCenter)
+        camera0Label = QLabel(self)
+        camera0Label.setText("Camera 1 View:")
+        camera1Label = QLabel(self)
+        camera1Label.setText("Camera 2 View:")
 
          # Creating an input box with label
         # magnificationInput = QLineEdit(self)
@@ -416,15 +426,18 @@ class App(QMainWindow):
         button_grid.addWidget(acousticNegButton, 7, 2)
         button_grid.addWidget(magnificationLabel, 8, 0)
 
-        button_grid.addWidget(self.camera0ComboBox, 9, 0)
+        button_grid.addWidget(camera0Label, 9, 0)
+        button_grid.addWidget(camera1Label, 9, 1)
+        button_grid.addWidget(self.camera0ComboBox, 10, 0)
+        button_grid.addWidget(self.camera1ComboBox, 10, 1)
         # button_grid.addWidget(magnificationInput, 8, 1, 1, 2)
         
         
         # Create a table widget
-        table = QtWidgets.QTableWidget()
-        table.setRowCount(10)
-        table.setColumnCount(3)
-        table.setHorizontalHeaderLabels(["Index","X Pos", "Y Pos"])
+        self.table = QtWidgets.QTableWidget()
+        self.table.setRowCount(10)
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["Index","X Pos", "Y Pos"])
 
         cw = QtWidgets.QWidget()
         self.my_grid = QtWidgets.QGridLayout()
@@ -436,14 +449,18 @@ class App(QMainWindow):
         self.screen_height = QtWidgets.QApplication.desktop().screenGeometry().height()
         
         # Stream links
-        self.camera0 = 2
-        self.camera1 = 1
+        # self.camera0 = 2
+        # self.camera1 = 1
+        self.camera0 = None
+        self.camera1 = None
 
         
         # Create camera widgets
         print('Creating Camera Widgets...')
-        # self.zero = CameraWidget(screen_width//3, screen_height//3, table, self.camera0)
-        # self.one = CameraWidget(screen_width//3, screen_height//3, table, self.camera1)
+        self.zero = None
+        self.one = None
+        # self.zero = CameraWidget(self.screen_width//3, self.screen_height//3, self.table, self.camera0)
+        # self.one = CameraWidget(self.screen_width//3, self.screen_height//3, self.table, self.camera1)
         # while zero.online is False:
         #       time.sleep(1)
         # Add widgets to layout
@@ -451,13 +468,18 @@ class App(QMainWindow):
         # Create magnification button
         magnificationButton = QPushButton('Calibrate Magnification', self)
         magnificationButton.setToolTip('Calibration Button')
-        # magnificationButton.clicked.connect(partial(self.setDistance, self.zero))
+        magnificationButton.clicked.connect(partial(self.setDistance, self.zero))
         button_grid.addWidget(magnificationButton, 8, 1)
 
         print('Adding widgets to layout...')
+        if self.zero is not None:
+            self.my_grid.addWidget(self.zero.get_video_frame(),0,0,1,2)
+        if self.one is not None:
+            print("self one is not none")
+            self.my_grid.addWidget(self.one.get_video_frame(),1,0,1,1)
         # my_grid.addWidget(self.zero.get_video_frame(),0,0,1,2)
         # my_grid.addWidget(self.one.get_video_frame(),1,0,1,1)
-        self.my_grid.addWidget(table,0,2,1,3)
+        self.my_grid.addWidget(self.table,0,2,1,3)
         self.my_grid.addLayout(button_grid,0,5,1,2)
         print(self.my_grid.columnCount())
         
@@ -489,9 +511,17 @@ class App(QMainWindow):
         if self.camera0 is not None:
             self.my_grid.removeWidget(self.zero.get_video_frame())
         self.camera0 = self.availableCameras[index - 1]
-        # self.zero = CameraWidget(self.screen_width//3, self.screen_height//3, self.table, self.camera0)
-        self.zero = CameraWidget(self.screen_width//3, self.screen_height//3, self.camera0)
-        self.my_grid.addWidget(self.zero.get_video_frame(),0,0,1,1)
+        self.zero = CameraWidget(self.screen_width//3, self.screen_height//3, self.table, self.camera0)
+        self.my_grid.addWidget(self.zero.get_video_frame(),0,0,1,2)
+
+    def camera1Change(self, index):
+        # print("Text changed:", s)
+        print("View 2 was changed to " + str(index - 1))
+        if self.camera1 is not None:
+            self.my_grid.removeWidget(self.one.get_video_frame())
+        self.camera1 = self.availableCameras[index - 1]
+        self.one = CameraWidget(self.screen_width//3, self.screen_height//3, self.table, self.camera1)
+        self.my_grid.addWidget(self.one.get_video_frame(),1,0,1,1)
 
     def setDistance(self, cameraView):
         cameraView.magButton = True
