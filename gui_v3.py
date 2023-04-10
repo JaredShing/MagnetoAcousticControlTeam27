@@ -57,6 +57,9 @@ class CameraWidget(QtWidgets.QWidget):
         self.timer.timeout.connect(self.set_frame)
         self.timer.start(1)
 
+        self.calibrateTopLeft = None
+        self.topLeftX = None
+        self.topLeftY = None
         self.clickPos1 = None
         self.clickPos2 = None
         self.cPos1X = None
@@ -120,12 +123,16 @@ class CameraWidget(QtWidgets.QWidget):
                         # print("Mouse Clicked?")
                         self.state_left = a 
                         if a < 0: 
-                            if self.clickPos1 is None:
+                            if self.calibrateTopLeft is None:
+                                self.calibrateTopLeft = pg.position()
+                                self.topLeftX = self.calibrateTopLeft.x
+                                self.topLeftY = self.calibrateTopLeft.y
+                            elif self.clickPos1 is None:
                                 self.clickPos1 = pg.position()
-                            elif self.clickPos2 is None:
-                                self.clickPos2 = pg.position()
                                 self.cPos1X = self.clickPos1.x
                                 self.cPos1Y = self.clickPos1.y
+                            elif self.clickPos2 is None:
+                                self.clickPos2 = pg.position()
                                 self.cPos2X = self.clickPos2.x
                                 self.cPos2Y = self.clickPos2.y
                                 self.calibrationX = self.clickPos1.x - self.clickPos2.x
@@ -166,12 +173,13 @@ class CameraWidget(QtWidgets.QWidget):
 
             # Add green line to indicte clicked point
             if self.cPos2Y is not None:
-                print("TESTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTING")
-                print(self.cPos1X)
-                print(self.cPos1Y)
-                print(self.cPos2X)
-                print(self.cPos2Y)
-                cv2.line(self.frame, (self.cPos1X, self.cPos1Y), (self.cPos2X, self.cPos2Y), color=(0,255,0), thickness = 2)
+                # print("TESTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTING")
+                # print(self.cPos1X)
+                # print(self.cPos1Y)
+                # print(self.cPos2X)
+                # print(self.cPos2Y)
+                cv2.line(self.frame, (self.cPos1X - self.topLeftX, self.cPos1Y - self.topLeftY), 
+                         (self.cPos2X - self.topLeftX, self.cPos2Y - self.topLeftY), color=(0,255,0), thickness = 2)
 
             cv2.line(self.frame, (0, 100), (100, 200), color = (0, 255, 0), thickness = 2)
 
@@ -523,10 +531,6 @@ class App(QMainWindow):
         if arr:
             arr.pop(-1)
         return arr
-    
-    # def camera0Change(self, s):
-    #     # print("Text changed:", s)
-    #     print("View 0 was changed to " + s)
 
     def camera0Change(self, index):
         # print("Text changed:", s)
