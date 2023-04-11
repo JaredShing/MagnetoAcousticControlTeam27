@@ -69,16 +69,15 @@ class CameraWidget(QtWidgets.QWidget):
 
         print('Started camera: {}'.format(self.camera_stream_link))
 
-        # self.painter = QPainter(self)
+    def load_network_stream_thread(self):
+        if self.verify_network_stream(self.camera_stream_link):
+            self.capture = cv2.VideoCapture(self.camera_stream_link)
+            self.online = True
 
     def load_network_stream(self):
         """Verifies stream link and open new stream if valid"""
 
-        def load_network_stream_thread():
-            if self.verify_network_stream(self.camera_stream_link):
-                self.capture = cv2.VideoCapture(self.camera_stream_link)
-                self.online = True
-        self.load_stream_thread = Thread(target=load_network_stream_thread, args=())
+        self.load_stream_thread = Thread(target=self.load_network_stream_thread, args=())
         self.load_stream_thread.daemon = True
         self.load_stream_thread.start()
 
@@ -103,11 +102,6 @@ class CameraWidget(QtWidgets.QWidget):
                     else:
                         self.capture.release()
                         self.online = False
-                else:
-                    # Attempt to reconnect
-                    print('attempting to reconnect', self.camera_stream_link)
-                    self.load_network_stream()
-                    self.spin(2)
                 self.spin(.001)                    
 
             except AttributeError:
@@ -142,13 +136,19 @@ class CameraWidget(QtWidgets.QWidget):
 
             if self.magButton:
                 if self.clicked == 1:
+                    if self.x + self.y == 0:
+                        self.x = self.start_x
+                        self.y = self.start_y
                     cv2.line(self.frame, (self.start_x, self.start_y), (self.x, self.y), color=(0, 255, 0), thickness=2)
                 if self.clicked == 2:
                     cv2.line(self.frame, (self.start_x, self.start_y), (self.end_x, self.end_y), color=(0, 255, 0), thickness=2)
-            self.scale_text =  f"Scale: {round(self.distance/10,3)}px/mm"
+            
+            # Was getting a complex number error if calibration button was hit before ending 2nd point
+            if not isinstance(self.distance, complex):
+                self.scale_text =  f"Scale: {round(self.distance/10,3)}px/mm"
+
             cv2.putText(frame, self.scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
-            
             # Convert to pixmap and set to video frame
             self.img = QtGui.QImage(self.frame, self.frame.shape[1], self.frame.shape[0], QtGui.QImage.Format_RGB888).rgbSwapped()
             self.pix = QtGui.QPixmap.fromImage(self.img)
@@ -169,8 +169,6 @@ class CameraWidget(QtWidgets.QWidget):
                 self.start_x = event.pos().x()
                 self.start_y = event.pos().y()
         print("Mouse clicked at x={}, y={}, clicked = {}".format(self.start_x, self.start_y, self.clicked))
-        
-
 
     def mouse_move_callback(self, event):
         self.x = event.pos().x()
@@ -230,6 +228,12 @@ class CameraWidget(QtWidgets.QWidget):
         # commented out the dilatation window and made it return the img instead
         return dilatation_dst
     
+    def close(self):
+        # Release the camera and stop the frame grabbing thread
+        print("i ran!")
+        self.capture.release()
+        self.get_frame_thread.join()
+
 def exit_application():
     """Exit program event handler"""
     sys.exit(1)
@@ -279,24 +283,25 @@ class App(QMainWindow):
         self.acousticOnOff = 0
         self.magneticsOnOff = 0
 
-        print('Creating Arduino Connection')
-        self.arduino = None #Create Serial port object called arduinoSerialData
+        self.arduino = None
 
         self.setWindowTitle("Magneto-Acoustic Control GUI")
 
         self.camera0ComboBox = QComboBox()
+        self.camera1ComboBox = QComboBox()
+
         self.availableCameras = self.returnCameraIndexes()
-        print("Avaiable Camreas")
+        print("Avaiable Cameras")
         print(self.availableCameras)
+
         self.camera0ComboBox.addItem("Select Camera")
+        self.camera1ComboBox.addItem("Select Camera")
+
         for i in self.availableCameras:
             self.camera0ComboBox.addItem("Camera " + str(i))
-        self.camera0ComboBox.currentIndexChanged.connect(self.camera0Change)
-
-        self.camera1ComboBox = QComboBox()
-        self.camera1ComboBox.addItem("Select Camera")
-        for i in self.availableCameras:
             self.camera1ComboBox.addItem("Camera " + str(i))
+
+        self.camera0ComboBox.currentIndexChanged.connect(self.camera0Change)
         self.camera1ComboBox.currentIndexChanged.connect(self.camera1Change)
 
         com_ports = serial.tools.list_ports.comports()
@@ -325,7 +330,11 @@ class App(QMainWindow):
         magneticButton = QPushButton('Turn Off Coils', self)
         magneticButton.setToolTip('Turn Off Coils')
         magneticButton.setStyleSheet('QPushButton {color: red}')
-        magneticButton.clicked.connect(self.onMagneticClick)
+        magneticButton.clicked.connect(self.coilsOffClick)
+
+        # Create Calibration button
+        self.calibrationButton = QPushButton('Start Calibration', self)
+        self.calibrationButton.setToolTip('Calibration Button')
 
         acousticPosButton = QPushButton('+', self)
         acousticPosButton.setToolTip('Increase Acoustic Field Intensity')
@@ -372,16 +381,17 @@ class App(QMainWindow):
         camera1Label = QLabel(self)
         camera1Label.setText("Camera 2 View:")
 
-         # Creating an input box with label
         # magnificationInput = QLineEdit(self)
         magnificationLabel = QLabel(self)
         magnificationLabel.setText("Magnification:")
 
         # Add buttons to a gridlayout within the 2nd column of the main grid
+        # Layout is nx3 
         button_grid = QGridLayout()
         button_grid.addWidget(self.x1_slider,0,0)
         button_grid.addWidget(x1Label,0,1)
         button_grid.addWidget(self.x1_input,0,2)
+
         button_grid.addWidget(self.x2_slider,1,0)
         button_grid.addWidget(x2Label,1,1)
         button_grid.addWidget(self.x2_input,1,2)
@@ -389,30 +399,33 @@ class App(QMainWindow):
         button_grid.addWidget(self.y1_slider,2,0)
         button_grid.addWidget(y1Label,2,1)
         button_grid.addWidget(self.y1_input,2,2)
+
         button_grid.addWidget(self.y2_slider,3,0)
         button_grid.addWidget(y2Label,3,1)
         button_grid.addWidget(self.y2_input,3,2)
 
-        
         button_grid.addWidget(self.z1_slider,4,0)
         button_grid.addWidget(z1Label,4,1)
         button_grid.addWidget(self.z1_input,4,2)
+
         button_grid.addWidget(self.z2_slider,5,0)
         button_grid.addWidget(z2Label,5,1)
         button_grid.addWidget(self.z2_input,5,2)
-
         
         button_grid.addWidget(acousticButton,6,0)
         button_grid.addWidget(acousticReset, 6, 2)
+
         button_grid.addWidget(acousticPosButton, 7, 0)
         button_grid.addWidget(acousticLabel, 7, 1)
         button_grid.addWidget(acousticNegButton, 7, 2)
-        button_grid.addWidget(magnificationLabel, 8, 0)
 
+        button_grid.addWidget(magnificationLabel, 8, 0)
+        button_grid.addWidget(self.calibrationButton, 8, 1)
         button_grid.addWidget(magneticButton, 8, 2)
 
         button_grid.addWidget(camera0Label, 9, 0)
         button_grid.addWidget(camera1Label, 9, 1)
+
         button_grid.addWidget(self.camera0ComboBox, 10, 0)
         button_grid.addWidget(self.camera1ComboBox, 10, 1)
         button_grid.addWidget(self.com_port_box, 10, 2)
@@ -437,17 +450,9 @@ class App(QMainWindow):
         self.camera0 = None
         self.camera1 = None
 
-        
         # Create camera widgets
-        print('Creating Camera Widgets...')
         self.zero = None
         self.one = None
-
-        # Create magnification button
-
-        self.magnificationButton = QPushButton('Start Calibration', self)
-        self.magnificationButton.setToolTip('Calibration Button')
-        button_grid.addWidget(self.magnificationButton, 8, 1)
 
         print('Adding widgets to layout...')
         if self.zero is not None:
@@ -526,11 +531,20 @@ class App(QMainWindow):
         # print("Text changed:", s)
         print("View 1 was changed to " + str(index - 1))
         if self.camera0 is not None:
+            self.zero.close()
+            print("not none")
+            cap = cv2.VideoCapture(index)
+            print("cap index")
+            cap.release()
+            print("cap released")
             self.my_grid.removeWidget(self.zero.get_video_frame())
+            print("widget removed")
+            
+
         self.camera0 = self.availableCameras[index - 1]
         self.zero = CameraWidget(self.screen_width//3, self.screen_height//3, self.table, self.camera0)
         self.my_grid.addWidget(self.zero.get_video_frame(),0,0,1,2)
-        self.magnificationButton.clicked.connect(partial(self.calibration_button, self.zero))
+        self.calibrationButton.clicked.connect(partial(self.calibration_button, self.zero))
 
     def camera1Change(self, index):
         # print("Text changed:", s)
@@ -540,6 +554,7 @@ class App(QMainWindow):
         self.camera1 = self.availableCameras[index - 1]
         self.one = CameraWidget(self.screen_width//3, self.screen_height//3, self.table, self.camera1)
         self.my_grid.addWidget(self.one.get_video_frame(),1,0,1,1)
+    
 
     def calibration_button(self, camera):
         self.distance = 0
@@ -550,10 +565,10 @@ class App(QMainWindow):
             camera.clicked = 0
             camera.start_x = 0
             camera.start_y = 0
-            self.magnificationButton.setText("Start Calibration")
+            self.calibrationButton.setText("Start Calibration")
         else:
             camera.magButton = True
-            self.magnificationButton.setText("End Calibration")
+            self.calibrationButton.setText("End Calibration")
 
 
     def change_slider(self, coil, input, slider):
@@ -624,7 +639,7 @@ class App(QMainWindow):
             button.setStyleSheet('QPushButton {color: red}')
         # print("Acoustic Power = " + str(self.acousticOnOff)) # Debugging code
 
-    def onMagneticClick(self):
+    def coilsOffClick(self):
         coils = [self.coil1, self.coil2, self.coil3, self.coil4, self.coil5, self.coil6]
         sliders = [self.x1_slider, self.x2_slider, self.y1_slider, self.y2_slider, self.z1_slider, self.z2_slider]
         inputs = [self.x1_input, self.x2_input, self.y1_input, self.y2_input, self.z1_input, self.z2_input]
