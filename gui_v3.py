@@ -322,7 +322,6 @@ class App(QMainWindow):
         self.camera1ComboBox.currentIndexChanged.connect(self.camera1Change)
 
         com_ports = serial.tools.list_ports.comports()
-        serial.Serial('COM6',9600)
         com_ports_names = [port.device for port in com_ports]
         self.com_port_box = QComboBox()
         self.com_port_box.addItems(com_ports_names)
