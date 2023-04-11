@@ -299,9 +299,10 @@ class App(QMainWindow):
         self.zPos = 0
         self.acoustic = 0
         self.acousticOnOff = 0
+        self.magneticsOnOff = 0
 
         print('Creating Arduino Connection')
-        self.arduino = serial.Serial('COM9',9600) #Create Serial port object called arduinoSerialData
+        self.arduino = serial.Serial('COM6',9600) #Create Serial port object called arduinoSerialData
         self.setup_coils(self.arduino)
 
         self.setWindowTitle("Magneto-Acoustic Control GUI")
@@ -321,55 +322,60 @@ class App(QMainWindow):
             self.camera1ComboBox.addItem("Camera " + str(i))
         self.camera1ComboBox.currentIndexChanged.connect(self.camera1Change)
 
-        x1_input = QLineEdit()
-        x2_input = QLineEdit()
-        y1_input = QLineEdit()
-        y2_input = QLineEdit()
-        z1_input = QLineEdit()
-        z2_input = QLineEdit()
+        self.x1_input = QLineEdit()
+        self.x2_input = QLineEdit()
+        self.y1_input = QLineEdit()
+        self.y2_input = QLineEdit()
+        self.z1_input = QLineEdit()
+        self.z2_input = QLineEdit()
 
-        x1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        x1_slider.sliderReleased.connect(partial(self.change_slider, self.coil1, x1_input, x1_slider))
+        self.x1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.x1_slider.sliderReleased.connect(partial(self.change_slider, self.coil1, self.x1_input, self.x1_slider))
 
-        x2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        x2_slider.sliderReleased.connect(partial(self.change_slider, self.coil2, x2_input, x2_slider))
+        self.x2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.x2_slider.sliderReleased.connect(partial(self.change_slider, self.coil2, self.x2_input, self.x2_slider))
 
-        y1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        y1_slider.sliderReleased.connect(partial(self.change_slider, self.coil3, y1_input, y1_slider))
+        self.y1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.y1_slider.sliderReleased.connect(partial(self.change_slider, self.coil3, self.y1_input, self.y1_slider))
 
-        y2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        y2_slider.sliderReleased.connect(partial(self.change_slider, self.coil4, y2_input, y2_slider))
+        self.y2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.y2_slider.sliderReleased.connect(partial(self.change_slider, self.coil4, self.y2_input, self.y2_slider))
 
-        z1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        z1_slider.sliderReleased.connect(partial(self.change_slider, self.coil5, z1_input, z1_slider))
+        self.z1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.z1_slider.sliderReleased.connect(partial(self.change_slider, self.coil5, self.z1_input, self.z1_slider))
 
-        z2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
-        z2_slider.sliderReleased.connect(partial(self.change_slider, self.coil6, z2_input, z2_slider))
+        self.z2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.z2_slider.sliderReleased.connect(partial(self.change_slider, self.coil6, self.z2_input, self.z2_slider))
 
-        sliders = [x1_slider, x2_slider, y1_slider, y2_slider, z1_slider, z2_slider]
-        for slider in sliders:
+        self.sliders = [self.x1_slider, self.x2_slider, self.y1_slider, self.y2_slider, self.z1_slider, self.z2_slider]
+        for slider in self.sliders:
             slider.setMaximum(255)
             slider.setMinimum(-255)
 
-        x1_input.setFixedWidth(50)
-        x1_input.returnPressed.connect(partial(self.set_slider, x1_slider, x1_input, self.coil1))
-        x1_input.editingFinished.connect(partial(self.set_slider, x1_slider, x1_input, self.coil1))
-        x2_input.setFixedWidth(50)
-        x2_input.returnPressed.connect(partial(self.set_slider, x2_slider, x2_input, self.coil2))
-        x2_input.editingFinished.connect(partial(self.set_slider, x2_slider, x2_input, self.coil2))
-        y1_input.setFixedWidth(50)
-        y1_input.returnPressed.connect(partial(self.set_slider, y1_slider, y1_input, self.coil3))
-        y1_input.editingFinished.connect(partial(self.set_slider, y1_slider, y1_input, self.coil3))
-        y2_input.setFixedWidth(50)
-        y2_input.returnPressed.connect(partial(self.set_slider, y2_slider, y2_input, self.coil4))
-        y2_input.editingFinished.connect(partial(self.set_slider, y2_slider, y2_input, self.coil4))
-        z1_input.setFixedWidth(50)
-        z1_input.returnPressed.connect(partial(self.set_slider, z1_slider, z1_input, self.coil5))
-        z1_input.editingFinished.connect(partial(self.set_slider, z1_slider, z1_input, self.coil5))
-        z2_input.setFixedWidth(50)
-        z2_input.returnPressed.connect(partial(self.set_slider, z2_slider, z2_input, self.coil6))
-        z2_input.editingFinished.connect(partial(self.set_slider, z2_slider, z2_input, self.coil6))
+        self.x1_input.setFixedWidth(50)
+        self.x1_input.returnPressed.connect(partial(self.set_slider, self.x1_slider, self.x1_input, self.coil1))
+        self.x1_input.editingFinished.connect(partial(self.set_slider, self.x1_slider, self.x1_input, self.coil1))
+        self.x2_input.setFixedWidth(50)
+        self.x2_input.returnPressed.connect(partial(self.set_slider, self.x2_slider, self.x2_input, self.coil2))
+        self.x2_input.editingFinished.connect(partial(self.set_slider, self.x2_slider, self.x2_input, self.coil2))
+        self.y1_input.setFixedWidth(50)
+        self.y1_input.returnPressed.connect(partial(self.set_slider, self.y1_slider, self.y1_input, self.coil3))
+        self.y1_input.editingFinished.connect(partial(self.set_slider, self.y1_slider, self.y1_input, self.coil3))
+        self.y2_input.setFixedWidth(50)
+        self.y2_input.returnPressed.connect(partial(self.set_slider, self.y2_slider, self.y2_input, self.coil4))
+        self.y2_input.editingFinished.connect(partial(self.set_slider, self.y2_slider, self.y2_input, self.coil4))
+        self.z1_input.setFixedWidth(50)
+        self.z1_input.returnPressed.connect(partial(self.set_slider, self.z1_slider, self.z1_input, self.coil5))
+        self.z1_input.editingFinished.connect(partial(self.set_slider, self.z1_slider, self.z1_input, self.coil5))
+        self.z2_input.setFixedWidth(50)
+        self.z2_input.returnPressed.connect(partial(self.set_slider, self.z2_slider, self.z2_input, self.coil6))
+        self.z2_input.editingFinished.connect(partial(self.set_slider, self.z2_slider, self.z2_input, self.coil6))
         # Create buttons to control magnetics and acoustics
+
+        magneticButton = QPushButton('Turn Off Coils', self)
+        magneticButton.setToolTip('Turn Off Coils')
+        magneticButton.setStyleSheet('QPushButton {color: red}')
+        magneticButton.clicked.connect(self.onMagneticClick)
 
         acousticPosButton = QPushButton('+', self)
         acousticPosButton.setToolTip('Increase Acoustic Field Intensity')
@@ -423,27 +429,27 @@ class App(QMainWindow):
 
         # Add buttons to a gridlayout within the 2nd column of the main grid
         button_grid = QGridLayout()
-        button_grid.addWidget(x1_slider,0,0)
+        button_grid.addWidget(self.x1_slider,0,0)
         button_grid.addWidget(x1Label,0,1)
-        button_grid.addWidget(x1_input,0,2)
-        button_grid.addWidget(x2_slider,1,0)
+        button_grid.addWidget(self.x1_input,0,2)
+        button_grid.addWidget(self.x2_slider,1,0)
         button_grid.addWidget(x2Label,1,1)
-        button_grid.addWidget(x2_input,1,2)
+        button_grid.addWidget(self.x2_input,1,2)
 
-        button_grid.addWidget(y1_slider,2,0)
+        button_grid.addWidget(self.y1_slider,2,0)
         button_grid.addWidget(y1Label,2,1)
-        button_grid.addWidget(y1_input,2,2)
-        button_grid.addWidget(y2_slider,3,0)
+        button_grid.addWidget(self.y1_input,2,2)
+        button_grid.addWidget(self.y2_slider,3,0)
         button_grid.addWidget(y2Label,3,1)
-        button_grid.addWidget(y2_input,3,2)
+        button_grid.addWidget(self.y2_input,3,2)
 
         
-        button_grid.addWidget(z1_slider,4,0)
+        button_grid.addWidget(self.z1_slider,4,0)
         button_grid.addWidget(z1Label,4,1)
-        button_grid.addWidget(z1_input,4,2)
-        button_grid.addWidget(z2_slider,5,0)
+        button_grid.addWidget(self.z1_input,4,2)
+        button_grid.addWidget(self.z2_slider,5,0)
         button_grid.addWidget(z2Label,5,1)
-        button_grid.addWidget(z2_input,5,2)
+        button_grid.addWidget(self.z2_input,5,2)
 
         
         button_grid.addWidget(acousticButton,6,0)
@@ -452,6 +458,8 @@ class App(QMainWindow):
         button_grid.addWidget(acousticLabel, 7, 1)
         button_grid.addWidget(acousticNegButton, 7, 2)
         button_grid.addWidget(magnificationLabel, 8, 0)
+
+        button_grid.addWidget(magneticButton, 8, 2)
 
         button_grid.addWidget(camera0Label, 9, 0)
         button_grid.addWidget(camera1Label, 9, 1)
@@ -631,6 +639,16 @@ class App(QMainWindow):
             self.acousticOnOff = 0 
             button.setStyleSheet('QPushButton {color: red}')
         # print("Acoustic Power = " + str(self.acousticOnOff)) # Debugging code
+
+    def onMagneticClick(self):
+        coils = [self.coil1, self.coil2, self.coil3, self.coil4, self.coil5, self.coil6]
+        sliders = [self.x1_slider, self.x2_slider, self.y1_slider, self.y2_slider, self.z1_slider, self.z2_slider]
+        inputs = [self.x1_input, self.x2_input, self.y1_input, self.y2_input, self.z1_input, self.z2_input]
+        for i in range(len(coils)):
+            coils[i].set_pwm(0)
+            sliders[i].setValue(0)
+            inputs[i].setText("0")
+        print("Magnetics Off") # Debugging code
 
 if __name__ == '__main__':
     
