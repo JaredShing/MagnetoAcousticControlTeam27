@@ -65,6 +65,7 @@ class CameraWidget(QtWidgets.QWidget):
         self.x = 0
         self.y = 0
         self.magButton = False
+        self.distance = 0
 
         print('Started camera: {}'.format(self.camera_stream_link))
 
@@ -137,15 +138,16 @@ class CameraWidget(QtWidgets.QWidget):
             else:
                 self.frame = cv2.resize(frame, (self.screen_width, self.screen_height))
             # Add green line to indicte clicked point
+            self.add_contours()
+
             if self.magButton:
                 if self.clicked == 1:
                     cv2.line(self.frame, (self.start_x, self.start_y), (self.x, self.y), color=(0, 255, 0), thickness=2)
                 if self.clicked == 2:
                     cv2.line(self.frame, (self.start_x, self.start_y), (self.end_x, self.end_y), color=(0, 255, 0), thickness=2)
+            self.scale_text =  f"Scale: {round(self.distance/10,3)}px/mm"
+            cv2.putText(frame, self.scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
-                    
-
-            self.add_contours()
             
             # Convert to pixmap and set to video frame
             self.img = QtGui.QImage(self.frame, self.frame.shape[1], self.frame.shape[0], QtGui.QImage.Format_RGB888).rgbSwapped()
@@ -542,8 +544,8 @@ class App(QMainWindow):
     def calibration_button(self, camera):
         self.distance = 0
         if camera.magButton == True:
-            self.distance = ((camera.start_x-camera.end_x)**2-(camera.start_y-camera.end_y)**2)**(1/2)
-            print(f"Distance: {self.distance}, Magbutton: {camera.magButton}")
+            camera.distance = ((camera.start_x-camera.end_x)**2-(camera.start_y-camera.end_y)**2)**(1/2)
+            print(f"Distance: {camera.distance}, Magbutton: {camera.magButton}")
             camera.magButton = False
             camera.clicked = 0
             camera.start_x = 0
