@@ -143,6 +143,7 @@ class CameraWidget(QtWidgets.QWidget):
                 if self.clicked == 2:
                     cv2.line(self.frame, (self.start_x, self.start_y), (self.end_x, self.end_y), color=(0, 255, 0), thickness=2)
             
+            #changing
             # Was getting a complex number error if calibration button was hit before ending 2nd point
             if not isinstance(self.distance, complex):
                 self.scale_text =  f"Scale: {round(self.distance/10,3)}px/mm"
