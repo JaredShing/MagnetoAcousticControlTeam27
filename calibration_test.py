@@ -29,11 +29,9 @@ class CameraWidget(QtWidgets.QWidget):
         self.deque = deque(maxlen=deque_size)
         self.positions = {}
         self.data_table = data_table
-        # Slight offset is needed since PyQt layouts have a built in padding
-        # So add offset to counter the padding 
-        self.offset = 16
-        self.screen_width = width - self.offset
-        self.screen_height = height - self.offset
+
+        self.screen_width = width
+        self.screen_height = height
         self.maintain_aspect_ratio = aspect_ratio
 
         self.camera_stream_link = stream_link
@@ -159,21 +157,27 @@ class CameraWidget(QtWidgets.QWidget):
         return self.video_frame
     
     def mouse_callback(self, event):
+        difference = self.screen_height - self.video_frame.size().height()
+        offset = int(difference/2)
+
         if self.magButton:
             self.clicked += 1
             if self.clicked == 2:
                 self.end_x = event.pos().x()
-                self.end_y = event.pos().y()
+                self.end_y = event.pos().y()+offset
                 self.video_frame.setMouseTracking(False)
             else:
                 self.video_frame.setMouseTracking(True)
                 self.start_x = event.pos().x()
-                self.start_y = event.pos().y()
+                self.start_y = event.pos().y()+offset
         print("Mouse clicked at x={}, y={}, clicked = {}".format(self.start_x, self.start_y, self.clicked))
 
     def mouse_move_callback(self, event):
+        y_difference = self.screen_height - self.video_frame.size().height()
+        y_offset = int(y_difference/2)
+        
         self.x = event.pos().x()
-        self.y = event.pos().y()
+        self.y = event.pos().y()+y_offset
 
     def add_contours(self):
         # Create a color range
