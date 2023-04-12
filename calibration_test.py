@@ -1,21 +1,17 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QWidget, QMainWindow, QApplication, QLabel, QVBoxLayout, QPushButton, QGridLayout, QComboBox
+from PyQt5.QtWidgets import QMainWindow, QApplication, QLabel, QPushButton, QGridLayout, QComboBox
 from threading import Thread
 from collections import deque
-from datetime import datetime
 import time
 import sys
 import cv2
-import imutils
-import numpy as np
+from numpy import array as np_array
 from functools import partial
 import serial
 import serial.tools.list_ports
 from PyQt5.QtWidgets import QLineEdit
 from PyQt5 import QtCore
 import time
-# from PyQt5.QtGui import QPainter, QColor, QPen
-from PyQt5.QtCore import Qt
 
 # This code starts 2 cameras on separate threads to prevent frame lag
 class CameraWidget(QtWidgets.QWidget):
@@ -24,7 +20,7 @@ class CameraWidget(QtWidgets.QWidget):
     """
     def __init__(self, width, height, data_table, stream_link=0, aspect_ratio=False, parent=None, deque_size=1):
         super(CameraWidget, self).__init__(parent)
-        
+ 
         # Initialize deque used to store frames read from the stream
         self.deque = deque(maxlen=deque_size)
         self.positions = {}
@@ -122,13 +118,8 @@ class CameraWidget(QtWidgets.QWidget):
         if self.deque and self.online:
             # Grab latest frame
             frame = self.deque[-1]
-
-            # Keep frame aspect ratio
-            if self.maintain_aspect_ratio:
-                self.frame = imutils.resize(frame, width=self.screen_width)
-            # Force resize
-            else:
-                self.frame = cv2.resize(frame, (self.screen_width, self.screen_height))
+            
+            self.frame = cv2.resize(frame, (self.screen_width, self.screen_height))
             # Add green line to indicte clicked point
             self.add_contours()
 
@@ -181,8 +172,8 @@ class CameraWidget(QtWidgets.QWidget):
 
     def add_contours(self):
         # Create a color range
-        gray = np.array([180, 255, 50])
-        black = np.array([0, 0, 0])
+        gray = np_array([180, 255, 50])
+        black = np_array([0, 0, 0])
 
         """Convert from an opencv image to QPixmap"""
         # rgb_image = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
@@ -260,7 +251,7 @@ class Coil():
 
     def set_pwm(self, value):
         string_to_send = f"{self.axis}{self.num}{str(value).zfill(3)}{self.direction}\n"
-        self.arduino.write(string_to_send.encode())
+        print(f"COM Port selected is not an arduino: ")
         print(string_to_send)
 
     # return the calculated current value based on the pwm value
@@ -359,6 +350,13 @@ class App(QMainWindow):
         acousticReset.setToolTip('Reset Acoustic Intensity to 0')
         acousticReset.clicked.connect(partial(self.acousticButtonPress, "R\n"))
 
+        debug_button = QPushButton('Debug', self)
+        debug_button.clicked.connect(self.toggle_terminal)
+        self.debug_terminal = QtWidgets.QPlainTextEdit(self)
+        self.debug_terminal.setReadOnly(True)
+        self.debug_terminal.setLineWrapMode(QtWidgets.QPlainTextEdit.NoWrap)
+        self.debug_terminal.setVisible(False)
+
         # Creating the labels for the buttons so direction is clear for user
         x1Label = QLabel(self)
         x1Label.setText("x1")
@@ -430,11 +428,13 @@ class App(QMainWindow):
 
         button_grid.addWidget(camera0Label, 9, 0)
         button_grid.addWidget(camera1Label, 9, 1)
+        button_grid.addWidget(debug_button, 9, 2)
 
         button_grid.addWidget(self.camera0ComboBox, 10, 0)
         button_grid.addWidget(self.camera1ComboBox, 10, 1)
         button_grid.addWidget(self.com_port_box, 10, 2)
-        
+
+        button_grid.addWidget(self.debug_terminal, 11, 0, 3, 3,)
         
         # Create a table widget
         self.table = QtWidgets.QTableWidget()
@@ -468,7 +468,14 @@ class App(QMainWindow):
         self.my_grid.addWidget(self.table,0,2,1,3)
         self.my_grid.addLayout(button_grid,0,5,1,2)
         
+        sys.stdout = DebugStream(self.debug_terminal)
+
         print('Verifying camera work correctly')
+
+    def toggle_terminal(self):
+        self.debug_terminal.setVisible(not self.debug_terminal.isVisible())
+
+
     def connect_to_arduino(self, index):
         # Disconnect any previously opened serial port
         if self.arduino is not None and self.arduino.is_open:
@@ -476,10 +483,14 @@ class App(QMainWindow):
         
         # Connect to selected serial port
         com_port = self.com_port_box.currentText()
-        self.arduino = serial.Serial(com_port, 9600)
-        self.setup_coils(self.arduino)
-        self.setup_sliders()
-        self.setup_inputs()
+        try:
+            self.arduino = serial.Serial(com_port, 9600)
+            self.setup_coils(self.arduino)
+            self.setup_sliders()
+            self.setup_inputs()
+        except serial.SerialException as e:
+            print(f"COM Port selected is not an arduino: {e}")
+
 
     def setup_sliders(self):
         self.x1_slider.sliderReleased.connect(partial(self.change_slider, self.coil1, self.x1_input, self.x1_slider))
@@ -605,11 +616,15 @@ class App(QMainWindow):
         coil.set_pwm(abs(value))
 
     def acousticButtonPress(self, command):
-        self.arduino.write(command.encode())
+        try:
+            self.arduino.write(command.encode())
+        except serial.SerialException as e:
+            print(f"Failed to write acoustics to arduino: {e}")
+
         print("clicked")
-        time.sleep(2)
-        text = self.arduino.readline()
-        print(text)
+        # time.sleep(2)
+        # text = self.arduino.readline()
+        # print(text)
     
     def setup_coils(self, arduino):
         m = [0.009874387,
@@ -653,6 +668,19 @@ class App(QMainWindow):
             sliders[i].setValue(0)
             inputs[i].setText("0")
         print("Magnetics Off") # Debugging code
+
+class DebugStream:
+    """
+    A class that redirects the standard output to a QTextStream
+    """
+    def __init__(self, text_widget):
+        self.text_widget = text_widget
+        self.cursor = self.text_widget.textCursor()
+
+    def write(self, text):
+        self.cursor.movePosition(self.cursor.End)
+        self.cursor.insertText(text)
+        self.text_widget.ensureCursorVisible()
 
 if __name__ == '__main__':
     
