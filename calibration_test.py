@@ -250,19 +250,21 @@ class Coil():
 
     def set_pwm(self, value):
         string_to_send = f"{self.axis}{self.num}{str(value).zfill(3)}{self.direction}\n"
-        print(f"COM Port selected is not an arduino: ")
+        try:
+            self.arduino.write(string_to_send.encode())
+        except serial.SerialException as e:
+            print(f"COM Port selected is not an arduino: ")
         print(string_to_send)
 
     # return the calculated current value based on the pwm value
     def get_current_value(self):
         return self.current
 
-    # T0 change the direction we send a request to the arduino via serial.
-    # The serial request sends the coil axis {x, y, z}, then the direction {f, b}
-    # Foe example to change coil 1 forward, the request is "Xf"
+    # Set the direction of the coil
     def set_direction(self, direction_request):
         self.direction = direction_request
 
+    # Calculate the current using the linear regression calculated experimentally
     def calc_current(self):
         self.current = self.pwm_value*self.m + self.b
 
@@ -270,6 +272,7 @@ class Coil():
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.setWindowTitle("Magneto-Acoustic Control GUI")
 
         self.xPos = 0
         self.yPos = 0
@@ -277,17 +280,12 @@ class App(QMainWindow):
         self.acoustic = 0
         self.acousticOnOff = 0
         self.magneticsOnOff = 0
-
         self.arduino = None
-
-        self.setWindowTitle("Magneto-Acoustic Control GUI")
 
         self.camera0ComboBox = QComboBox()
         self.camera1ComboBox = QComboBox()
 
         self.availableCameras = self.returnCameraIndexes()
-        print("Avaiable Cameras")
-        print(self.availableCameras)
 
         self.camera0ComboBox.addItem("Select Camera")
         self.camera1ComboBox.addItem("Select Camera")
@@ -304,18 +302,6 @@ class App(QMainWindow):
         self.com_port_box = QComboBox()
         self.com_port_box.addItems(com_ports_names)
         self.com_port_box.currentIndexChanged.connect(self.connect_to_arduino)
-        
-
-        self.x1_input = QLineEdit()
-        self.x2_input = QLineEdit()
-        self.y1_input = QLineEdit()
-        self.y2_input = QLineEdit()
-        self.z1_input = QLineEdit()
-        self.z2_input = QLineEdit()
-        self.m1_input = QLineEdit()
-        self.m2_input = QLineEdit()
-        self.m3_input = QLineEdit()
-        self.m4_input = QLineEdit()
 
         x1_label = QLabel(self)
         x2_label = QLabel(self)
@@ -327,6 +313,17 @@ class App(QMainWindow):
         m2_label = QLabel(self)
         m3_label = QLabel(self)
         m4_label = QLabel(self)
+
+        self.x1_input = QLineEdit()
+        self.x2_input = QLineEdit()
+        self.y1_input = QLineEdit()
+        self.y2_input = QLineEdit()
+        self.z1_input = QLineEdit()
+        self.z2_input = QLineEdit()
+        self.m1_input = QLineEdit()
+        self.m2_input = QLineEdit()
+        self.m3_input = QLineEdit()
+        self.m4_input = QLineEdit()
 
         self.x1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.x2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
@@ -341,7 +338,6 @@ class App(QMainWindow):
 
 
         # Create buttons to control magnetics and acoustics
-
         magneticButton = QPushButton('Turn Off Coils', self)
         magneticButton.setToolTip('Turn Off Coils')
         magneticButton.setStyleSheet('QPushButton {color: red}')
