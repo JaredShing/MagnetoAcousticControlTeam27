@@ -29,7 +29,6 @@ class CameraWidget(QtWidgets.QWidget):
         self.screen_width = width
         self.screen_height = height
         self.maintain_aspect_ratio = aspect_ratio
-
         self.camera_stream_link = stream_link
 
         # Flag to check if camera is valid/working
@@ -313,6 +312,21 @@ class App(QMainWindow):
         self.y2_input = QLineEdit()
         self.z1_input = QLineEdit()
         self.z2_input = QLineEdit()
+        self.m1_input = QLineEdit()
+        self.m2_input = QLineEdit()
+        self.m3_input = QLineEdit()
+        self.m4_input = QLineEdit()
+
+        x1_label = QLabel(self)
+        x2_label = QLabel(self)
+        y1_label = QLabel(self)
+        y2_label = QLabel(self)
+        z1_label = QLabel(self)
+        z2_label = QLabel(self)
+        m1_label = QLabel(self)
+        m2_label = QLabel(self)
+        m3_label = QLabel(self)
+        m4_label = QLabel(self)
 
         self.x1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.x2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
@@ -320,6 +334,11 @@ class App(QMainWindow):
         self.y2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.z1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.z2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.m1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.m2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.m3_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+        self.m4_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
+
 
         # Create buttons to control magnetics and acoustics
 
@@ -358,24 +377,12 @@ class App(QMainWindow):
         self.debug_terminal.setVisible(False)
 
         # Creating the labels for the buttons so direction is clear for user
-        x1Label = QLabel(self)
-        x1Label.setText("x1")
-        x1Label.setAlignment(QtCore.Qt.AlignCenter)
-        y1Label = QLabel(self)
-        y1Label.setText("y1")
-        y1Label.setAlignment(QtCore.Qt.AlignCenter)
-        z1Label = QLabel(self)
-        z1Label.setText("z1")
-        z1Label.setAlignment(QtCore.Qt.AlignCenter)
-        x2Label = QLabel(self)
-        x2Label.setText("x2")
-        x2Label.setAlignment(QtCore.Qt.AlignCenter)
-        y2Label = QLabel(self)
-        y2Label.setText("y2")
-        y2Label.setAlignment(QtCore.Qt.AlignCenter)
-        z2Label = QLabel(self)
-        z2Label.setText("z2")
-        z2Label.setAlignment(QtCore.Qt.AlignCenter)
+        text_labels = ["x1", "x2", "y1", "y2", "z1", "z2", "m1", "m2", "m3", "m4"]
+        labels = [x1_label, x2_label, y1_label, y2_label, z1_label, z2_label, m1_label, m2_label, m3_label, m4_label]
+        for i in range(len(text_labels)):
+            labels[i].setText(text_labels[i])
+            labels[i].setAlignment(QtCore.Qt.AlignCenter)
+
         acousticLabel = QLabel(self)
         acousticLabel.setText("Acoustic Phase")
         acousticLabel.setAlignment(QtCore.Qt.AlignCenter)
@@ -391,28 +398,41 @@ class App(QMainWindow):
         # Add buttons to a gridlayout within the 2nd column of the main grid
         # Layout is nx3 
         button_grid = QGridLayout()
+
         button_grid.addWidget(self.x1_slider,0,0)
-        button_grid.addWidget(x1Label,0,1)
+        button_grid.addWidget(x1_label,0,1)
         button_grid.addWidget(self.x1_input,0,2)
+        button_grid.addWidget(self.m1_slider,0,3)
+        button_grid.addWidget(m1_label,0,4)
+        button_grid.addWidget(self.m1_input,0,5)
 
         button_grid.addWidget(self.x2_slider,1,0)
-        button_grid.addWidget(x2Label,1,1)
+        button_grid.addWidget(x2_label,1,1)
         button_grid.addWidget(self.x2_input,1,2)
+        button_grid.addWidget(self.m2_slider,1,3)
+        button_grid.addWidget(m2_label,1,4)
+        button_grid.addWidget(self.m2_input,1,5)
 
         button_grid.addWidget(self.y1_slider,2,0)
-        button_grid.addWidget(y1Label,2,1)
+        button_grid.addWidget(y1_label,2,1)
         button_grid.addWidget(self.y1_input,2,2)
+        button_grid.addWidget(self.m3_slider,2,3)
+        button_grid.addWidget(m3_label,2,4)
+        button_grid.addWidget(self.m3_input,2,5)
 
         button_grid.addWidget(self.y2_slider,3,0)
-        button_grid.addWidget(y2Label,3,1)
+        button_grid.addWidget(y2_label,3,1)
         button_grid.addWidget(self.y2_input,3,2)
+        button_grid.addWidget(self.m4_slider,3,3)
+        button_grid.addWidget(m4_label,3,4)
+        button_grid.addWidget(self.m4_input,3,5)
 
         button_grid.addWidget(self.z1_slider,4,0)
-        button_grid.addWidget(z1Label,4,1)
+        button_grid.addWidget(z1_label,4,1)
         button_grid.addWidget(self.z1_input,4,2)
 
         button_grid.addWidget(self.z2_slider,5,0)
-        button_grid.addWidget(z2Label,5,1)
+        button_grid.addWidget(z2_label,5,1)
         button_grid.addWidget(self.z2_input,5,2)
         
         button_grid.addWidget(acousticButton,6,0)
@@ -486,44 +506,24 @@ class App(QMainWindow):
         try:
             self.arduino = serial.Serial(com_port, 9600)
             self.setup_coils(self.arduino)
-            self.setup_sliders()
-            self.setup_inputs()
+            self.setup_inputs_and_sliders()
         except serial.SerialException as e:
             print(f"COM Port selected is not an arduino: {e}")
 
 
-    def setup_sliders(self):
-        self.x1_slider.sliderReleased.connect(partial(self.change_slider, self.coil1, self.x1_input, self.x1_slider))
-        self.x2_slider.sliderReleased.connect(partial(self.change_slider, self.coil2, self.x2_input, self.x2_slider))
-        self.y1_slider.sliderReleased.connect(partial(self.change_slider, self.coil3, self.y1_input, self.y1_slider))
-        self.y2_slider.sliderReleased.connect(partial(self.change_slider, self.coil4, self.y2_input, self.y2_slider))
-        self.z1_slider.sliderReleased.connect(partial(self.change_slider, self.coil5, self.z1_input, self.z1_slider))
-        self.z2_slider.sliderReleased.connect(partial(self.change_slider, self.coil6, self.z2_input, self.z2_slider))
+    def setup_inputs_and_sliders(self):
+        coils = [self.coil1, self.coil2, self.coil3, self.coil4, self.coil5, self.coil6, self.coil7, self.coil8, self.coil9, self.coil10]
+        sliders = [self.x1_slider, self.x2_slider, self.y1_slider, self.y2_slider, self.z1_slider, self.z2_slider, self.m1_slider, self.m2_slider, self.m3_slider, self.m4_slider]
+        inputs = [self.x1_input, self.x2_input, self.y1_input, self.y2_input, self.z1_input, self.z2_input, self.m1_input, self.m2_input, self.m3_input, self.m4_input]
 
-        sliders = [self.x1_slider, self.x2_slider, self.y1_slider, self.y2_slider, self.z1_slider, self.z2_slider]
-        for slider in sliders:
+        for coil, slider, input in coils, sliders, inputs:
+            slider.sliderReleased.connect(partial(self.change_slider, coil, input, slider))
             slider.setMaximum(255)
             slider.setMinimum(-255)
 
-    def setup_inputs(self):
-        self.x1_input.setFixedWidth(50)
-        self.x1_input.returnPressed.connect(partial(self.set_slider, self.x1_slider, self.x1_input, self.coil1))
-        self.x1_input.editingFinished.connect(partial(self.set_slider, self.x1_slider, self.x1_input, self.coil1))
-        self.x2_input.setFixedWidth(50)
-        self.x2_input.returnPressed.connect(partial(self.set_slider, self.x2_slider, self.x2_input, self.coil2))
-        self.x2_input.editingFinished.connect(partial(self.set_slider, self.x2_slider, self.x2_input, self.coil2))
-        self.y1_input.setFixedWidth(50)
-        self.y1_input.returnPressed.connect(partial(self.set_slider, self.y1_slider, self.y1_input, self.coil3))
-        self.y1_input.editingFinished.connect(partial(self.set_slider, self.y1_slider, self.y1_input, self.coil3))
-        self.y2_input.setFixedWidth(50)
-        self.y2_input.returnPressed.connect(partial(self.set_slider, self.y2_slider, self.y2_input, self.coil4))
-        self.y2_input.editingFinished.connect(partial(self.set_slider, self.y2_slider, self.y2_input, self.coil4))
-        self.z1_input.setFixedWidth(50)
-        self.z1_input.returnPressed.connect(partial(self.set_slider, self.z1_slider, self.z1_input, self.coil5))
-        self.z1_input.editingFinished.connect(partial(self.set_slider, self.z1_slider, self.z1_input, self.coil5))
-        self.z2_input.setFixedWidth(50)
-        self.z2_input.returnPressed.connect(partial(self.set_slider, self.z2_slider, self.z2_input, self.coil6))
-        self.z2_input.editingFinished.connect(partial(self.set_slider, self.z2_slider, self.z2_input, self.coil6))
+            input.setFixedWidth(50)
+            input.returnPressed.connect(partial(self.set_slider, slider, input, coil))
+            input.editingFinished.connect(partial(self.set_slider, slider, input, coil))
     
     def returnCameraIndexes(self):
         # checks the first 10 indexes.
@@ -627,19 +627,27 @@ class App(QMainWindow):
         # print(text)
     
     def setup_coils(self, arduino):
+        # TODO: ADD M, X and R values for maxwell coils
         m = [0.009874387,
             0.010136336,
             0.013625919,
             0.013743873,
             0.016740196,
-            0.016591605]
+            0.016591605,
+            0,
+            0,
+            0,
+            0]
         x = [-0.061568627,
             -0.063333333,
             -0.094705882,
             -0.082156863,
             -0.090980392,
-            -0.090196078]
-        r = [9.3, 8.9, 6.7, 6.8, 5.5, 5.5]
+            -0.0901960780,
+            0,
+            0,
+            0]
+        r = [9.3, 8.9, 6.7, 6.8, 5.5, 5.5, 2.5, 2.5, 2.5, 2.5]
 
         self.coil1 = Coil("X", 1, r[0], m[0], x[0], arduino)
         self.coil2 = Coil("X", 2, r[1], m[1], x[1], arduino)
@@ -647,6 +655,10 @@ class App(QMainWindow):
         self.coil4 = Coil("Y", 2, r[3], m[3], x[3], arduino)
         self.coil5 = Coil("Z", 1, r[4], m[4], x[4], arduino)
         self.coil6 = Coil("Z", 2, r[5], m[5], x[5], arduino)
+        self.coil7 = Coil("M", 1, r[6], m[6], x[6], arduino)
+        self.coil8 = Coil("M", 2, r[7], m[7], x[7], arduino)
+        self.coil9 = Coil("M", 3, r[8], m[8], x[8], arduino)
+        self.coil10 = Coil("M", 4, r[9], m[9], x[9], arduino)
 
     # Turns the acoustic button red and green to represent off and on for
     # the user to understand the current state
