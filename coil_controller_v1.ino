@@ -1,27 +1,36 @@
-#define en_coil_1 2
-#define en_coil_2 3
-#define en_coil_3 4
-#define en_coil_4 5
-#define en_coil_5 6
-#define en_coil_6 7
+#define en_coil_1 6     // black pwm
+#define en_coil_2 2     // brown pwm
+#define en_coil_3 5     // green pwm
+#define en_coil_4 7     // gray pwm
+#define en_coil_5 3     // orange pwm
+#define en_coil_6 4     // red pwm
+#define en_coil_7 9     // orange pwm
+#define en_coil_8 10    // green pwm
+#define en_coil_9 8     // gray pwm
+#define en_coil_10 11   // red pwm
 
-#define in_a_coil_1 52
-#define in_b_coil_1 53
-#define in_a_coil_2 51
-#define in_b_coil_2 50
-#define in_a_coil_3 49
-#define in_b_coil_3 48
-#define in_a_coil_4 47
-#define in_b_coil_4 46
-#define in_a_coil_5 45
-#define in_b_coil_5 44
-#define in_a_coil_6 43
-#define in_b_coil_6 42
+#define in_a_coil_1 44
+#define in_b_coil_1 45
+#define in_a_coil_2 53
+#define in_b_coil_2 52
+#define in_a_coil_3 47
+#define in_b_coil_3 46
+#define in_a_coil_4 42
+#define in_b_coil_4 43
+#define in_a_coil_5 50
+#define in_b_coil_5 51
+#define in_a_coil_6 48
+#define in_b_coil_6 49
+#define in_a_coil_7 34
+#define in_b_coil_7 35
+#define in_a_coil_8 32
+#define in_b_coil_8 33
+#define in_a_coil_9 39
+#define in_b_coil_9 38
+#define in_a_coil_10 37
+#define in_b_coil_10 36
 
-#define acoustic_driver 10
-#define phase_reset 11
-#define phase_up 12
-#define phase_down 13
+#define acoustic_driver 12
 
 
 const byte numChars = 7; // Form "X10010\n"
@@ -79,16 +88,21 @@ Coil coil_3(en_coil_3, in_a_coil_3, in_b_coil_3);
 Coil coil_4(en_coil_4, in_a_coil_4, in_b_coil_4);
 Coil coil_5(en_coil_5, in_a_coil_5, in_b_coil_5);
 Coil coil_6(en_coil_6, in_a_coil_6, in_b_coil_6);
+Coil coil_7(en_coil_7, in_a_coil_7, in_b_coil_7);
+Coil coil_8(en_coil_8, in_a_coil_8, in_b_coil_8);
+Coil coil_9(en_coil_9, in_a_coil_9, in_b_coil_9);
+Coil coil_10(en_coil_10, in_a_coil_10, in_b_coil_10);
+
 
 void setup()
 {
   // Setup Acoustic Controls
   pinMode(acoustic_driver,OUTPUT);
-  pinMode(phase_reset,OUTPUT);  // Button 3
-  pinMode(phase_up,OUTPUT);     // Button 2
-  pinMode(phase_down,OUTPUT);   // Button 1
+  // pinMode(phase_reset,OUTPUT);  // Button 3
+  // pinMode(phase_up,OUTPUT);     // Button 2
+  // pinMode(phase_down,OUTPUT);   // Button 1
 
-  Serial.begin(9600);
+  Serial.begin(9600, SERIAL_8N1);
 
 }
 
@@ -102,22 +116,7 @@ void loop()
     coil_dir = receivedChars[5];
     Serial.println(coil_dir);
     
-    if (receivedChars[0] == 'U'){
-      // Increase Phase
-      button_press(phase_up);
-      Serial.println("Phase up");
-    }else if(receivedChars[0] == 'D'){
-      // Decrease Phase
-      button_press(phase_down);
-      Serial.println("Phase down");
-
-    }else if(receivedChars[0] == 'R'){
-      // Reset Phase
-      button_press(phase_reset);
-      Serial.println("Phase reset");
-
-    }
-    else if(receivedChars[0] == 'E'){
+    if(receivedChars[0] == 'E'){
       // Enable Motor Driver
       if (enable_state){
         enable_state = 0;
@@ -188,6 +187,44 @@ void loop()
         }
         coil_6.set_pwm(pwm_read.toInt());
         Serial.print("Z Coil 2: ");
+        Serial.println(pwm_read);
+      }
+    }else if(coil_name == 'M'){
+      if (coil_num == '1'){
+        if  (coil_dir == '1'){
+          coil_7.set_dir(1);
+        }else{
+          coil_7.set_dir(0);
+        }
+        coil_7.set_pwm(pwm_read.toInt());
+        Serial.print("M Coil 1: ");
+        Serial.println(pwm_read);
+      }else if(coil_num == '2'){
+        if  (coil_dir == '1'){
+          coil_8.set_dir(1);
+        }else{
+          coil_8.set_dir(0);
+        }
+        coil_8.set_pwm(pwm_read.toInt());
+        Serial.print("M Coil 2: ");
+        Serial.println(pwm_read);
+      }else if(coil_num == '3'){
+        if  (coil_dir == '1'){
+          coil_9.set_dir(1);
+        }else{
+          coil_9.set_dir(0);
+        }
+        coil_9.set_pwm(pwm_read.toInt());
+        Serial.print("M Coil 3: ");
+        Serial.println(pwm_read);
+      }else{
+        if  (coil_dir == '1'){
+          coil_10.set_dir(1);
+        }else{
+          coil_10.set_dir(0);
+        }
+        coil_10.set_pwm(pwm_read.toInt());
+        Serial.print("M Coil 4: ");
         Serial.println(pwm_read);
       }
     }
