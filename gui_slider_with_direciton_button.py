@@ -12,6 +12,14 @@ import serial.tools.list_ports
 from PyQt5.QtWidgets import QLineEdit
 from PyQt5 import QtCore
 import time
+import math
+from datetime import datetime
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+import cProfile
+import pstats
+
 
 # This code starts 2 cameras on separate threads to prevent frame lag
 class CameraWidget(QtWidgets.QWidget):
@@ -245,7 +253,7 @@ class Coil():
             self.arduino.write(string_to_send.encode())
         except serial.SerialException as e:
             print(f"COM Port selected is not an arduino: ")
-        print(string_to_send)
+        # print(string_to_send)
 
     # return the calculated current value based on the pwm value
     def get_current_value(self):
@@ -263,6 +271,7 @@ class Coil():
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
+        
         self.setWindowTitle("Magneto-Acoustic Control GUI")
 
         self.xPos = 0
@@ -294,6 +303,15 @@ class App(QMainWindow):
         self.com_port_box.addItems(com_ports_names)
         self.com_port_box.currentIndexChanged.connect(self.connect_to_arduino)
 
+        self.serial_data = ""
+
+
+        self.plot_button = QPushButton("Plot")
+        self.plot_button.clicked.connect(self.show_plot_window)
+
+        self.toolbar = self.addToolBar("Main Toolbar")
+        self.toolbar.addWidget(self.plot_button)
+
         x1_label = QLabel(self)
         x2_label = QLabel(self)
         y1_label = QLabel(self)
@@ -315,6 +333,18 @@ class App(QMainWindow):
         self.m2_input = QLineEdit()
         self.m3_input = QLineEdit()
         self.m4_input = QLineEdit()
+
+        self.up = QPushButton("UP")
+        self.down = QPushButton("DOWN")
+        self.left = QPushButton("LEFT")
+        self.right = QPushButton("RIGHT")
+
+
+        self.direction_buttons = []
+
+        for i in range(10):
+            self.direction_buttons.append(QPushButton("+"))
+
 
         self.x1_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
         self.x2_slider = QtWidgets.QSlider(QtCore.Qt.Horizontal, self)
@@ -385,42 +415,52 @@ class App(QMainWindow):
         # Add buttons to a gridlayout within the 2nd column of the main grid
         # Layout is nx3 
         button_grid = QGridLayout()
-
+        
         button_grid.addWidget(self.x1_slider,0,0)
         button_grid.addWidget(x1_label,0,1)
-        button_grid.addWidget(self.x1_input,0,2)
+        button_grid.addWidget(self.direction_buttons[0],0,2)
         button_grid.addWidget(self.m1_slider,0,3)
         button_grid.addWidget(m1_label,0,4)
-        button_grid.addWidget(self.m1_input,0,5)
+        button_grid.addWidget(self.direction_buttons[6],0,5)
+
 
         button_grid.addWidget(self.x2_slider,1,0)
         button_grid.addWidget(x2_label,1,1)
-        button_grid.addWidget(self.x2_input,1,2)
+        button_grid.addWidget(self.direction_buttons[1],1,2)
         button_grid.addWidget(self.m2_slider,1,3)
         button_grid.addWidget(m2_label,1,4)
-        button_grid.addWidget(self.m2_input,1,5)
-
+        button_grid.addWidget(self.direction_buttons[7],1,5)
+        
         button_grid.addWidget(self.y1_slider,2,0)
         button_grid.addWidget(y1_label,2,1)
-        button_grid.addWidget(self.y1_input,2,2)
+        button_grid.addWidget(self.direction_buttons[2],2,2)
         button_grid.addWidget(self.m3_slider,2,3)
         button_grid.addWidget(m3_label,2,4)
-        button_grid.addWidget(self.m3_input,2,5)
+        button_grid.addWidget(self.direction_buttons[8],2,5)
+
 
         button_grid.addWidget(self.y2_slider,3,0)
         button_grid.addWidget(y2_label,3,1)
-        button_grid.addWidget(self.y2_input,3,2)
+        button_grid.addWidget(self.direction_buttons[3],3,2)
         button_grid.addWidget(self.m4_slider,3,3)
         button_grid.addWidget(m4_label,3,4)
-        button_grid.addWidget(self.m4_input,3,5)
+        button_grid.addWidget(self.direction_buttons[9],3,5)
+
+        button_grid.addWidget(self.up,8,4)
+        button_grid.addWidget(self.left,9,3)
+        button_grid.addWidget(self.right,9,5)
+        button_grid.addWidget(self.down,10,4)
+
 
         button_grid.addWidget(self.z1_slider,4,0)
         button_grid.addWidget(z1_label,4,1)
-        button_grid.addWidget(self.z1_input,4,2)
+        button_grid.addWidget(self.direction_buttons[4],4,2)
+
 
         button_grid.addWidget(self.z2_slider,5,0)
         button_grid.addWidget(z2_label,5,1)
-        button_grid.addWidget(self.z2_input,5,2)
+        button_grid.addWidget(self.direction_buttons[5],5,2)
+
         
         button_grid.addWidget(acousticButton,6,0)
         button_grid.addWidget(acousticReset, 6, 2)
@@ -477,11 +517,82 @@ class App(QMainWindow):
         
         sys.stdout = DebugStream(self.debug_terminal)
 
+    
         print('Verifying camera work correctly')
+
+    def update(self):
+        try:
+            if self.arduino.in_waiting > 0:
+                if len(self.serial_data) > 10000: # if buffer is too full, clear it
+                    self.arduino.flushInput()
+                    self.serial_data = ""
+                    print("Buffer cleared")
+                self.serial_data += self.arduino.read(self.arduino.in_waiting).decode()
+                if '\n' in self.serial_data:
+                    lines = self.serial_data.split('\n')
+                    self.serial_data = lines[-1]
+                    for line in lines[:-1]:
+                        print(line)
+        except UnicodeDecodeError:
+            print("UnicodeDecodeError")
+            self.arduino.flushInput()
+            self.serial_data = ""
+
+    def show_plot_window(self):
+        # Create and show an instance of the PlotWindow class
+        self.plot_window = PlotWindow(self.button_values)
+        self.plot_window.show()
+
+    def joystick_button_press(self, button):
+        self.button_values[button]["timer"] = QtCore.QTimer()
+        self.button_values[button]["timer"].timeout.connect(partial(self.increment_value, button))
+        self.button_values[button]["timer"].start(300)  # 100 ms interval
+
+    def joystick_button_release(self, button):
+        self.button_values[button]["timer"].stop()
+        self.button_values[button]["timer"].timeout.disconnect()
+        self.button_values[button]["timer"] = QtCore.QTimer()
+        self.button_values[button]["timer"].timeout.connect(partial(self.decay_value, button))
+        self.button_values[button]["timer"].start(300)  # 100 ms interval
+
+    def increment_value(self, button):
+        self.button_values[button]["value"] = min(round(self.button_values[button]["value"])+20, 255)
+        print(f'{button.text()}: {self.button_values[button]["value"]}')
+        self.button_values[button]["coils"][0].set_pwm(self.button_values[button]["value"])
+        time.sleep(0.01)
+        self.button_values[button]["coils"][1].set_pwm(self.button_values[button]["value"])
+        self.button_values[button]["value_history"].append(self.button_values[button]["value"])
+        self.button_values[button]["time_history"].append(datetime.now())
+        if len(self.button_values[button]["value_history"]) > 200:
+            self.button_values[button]["value_history"].pop(0)
+            self.button_values[button]["time_history"].pop(0)
+
+    def decay_value(self, button):
+        if self.button_values[button]["value"] <= 5:
+            self.button_values[button]["timer"].stop()
+            self.button_values[button]["timer"].timeout.disconnect()
+        else:
+            self.decay_constant = 1.5
+            self.button_values[button]["value"] = self.button_values[button]["value"] * math.exp(-self.decay_constant * 100 / 1000)  # decay over 100 ms
+            print(f'{button.text()}: {round(self.button_values[button]["value"])}')
+            self.button_values[button]["coils"][0].set_pwm(round(self.button_values[button]["value"]))
+            time.sleep(0.01)
+            self.button_values[button]["coils"][1].set_pwm(round(self.button_values[button]["value"]))
+            self.button_values[button]["value_history"].append(self.button_values[button]["value"])
+            self.button_values[button]["time_history"].append(datetime.now())
+            if len(self.button_values[button]["value_history"]) > 200:
+                self.button_values[button]["value_history"].pop(0)
+                self.button_values[button]["time_history"].pop(0)
 
     def toggle_terminal(self):
         self.debug_terminal.setVisible(not self.debug_terminal.isVisible())
 
+    def direction_switch(self, coil, input, button, slider):
+        if button.text() == "-":
+            button.setText("+")
+        else:
+            button.setText("-")
+        self.change_slider(coil, input, button, slider)
 
     def connect_to_arduino(self, index):
         # Disconnect any previously opened serial port
@@ -491,11 +602,17 @@ class App(QMainWindow):
         # Connect to selected serial port
         com_port = self.com_port_box.currentText()
         try:
-            self.arduino = serial.Serial(com_port, 9600)
+            self.arduino = serial.Serial(com_port, 9600, timeout=1)
             self.setup_coils(self.arduino)
+            self.setup_joystick()
             self.setup_inputs_and_sliders()
+            self.timer2 = QtCore.QTimer(self)
+            self.timer2.timeout.connect(self.update)
+            self.timer2.start(100)  # call update every 100 ms
+            print("Arduino_Connected")
         except serial.SerialException as e:
             print(f"COM Port selected is not an arduino: {e}")
+
 
 
     def setup_inputs_and_sliders(self):
@@ -503,10 +620,11 @@ class App(QMainWindow):
         sliders = [self.x1_slider, self.x2_slider, self.y1_slider, self.y2_slider, self.z1_slider, self.z2_slider, self.m1_slider, self.m2_slider, self.m3_slider, self.m4_slider]
         inputs = [self.x1_input, self.x2_input, self.y1_input, self.y2_input, self.z1_input, self.z2_input, self.m1_input, self.m2_input, self.m3_input, self.m4_input]
 
-        for coil, slider, input in zip(coils, sliders, inputs):
-            slider.sliderReleased.connect(partial(self.change_slider, coil, input, slider))
+        for coil, slider, input, dir_butt in zip(coils, sliders, inputs, self.direction_buttons):
+            dir_butt.clicked.connect(partial(self.direction_switch, coil, input, dir_butt, slider))
+            slider.sliderReleased.connect(partial(self.change_slider, coil, input, dir_butt, slider))
             slider.setMaximum(255)
-            slider.setMinimum(-255)
+            slider.setMinimum(0)
 
             input.setFixedWidth(50)
             input.returnPressed.connect(partial(self.set_slider, slider, input, coil))
@@ -574,12 +692,13 @@ class App(QMainWindow):
             self.calibrationButton.setText("End Calibration")
 
 
-    def change_slider(self, coil, input, slider):
+    def change_slider(self, coil, input, dir_butt, slider):
         value = slider.value()
-        if (value < 0):
+        if (dir_butt.text() == "+"):
             coil.set_direction(0)
         else:
             coil.set_direction(1)
+        print(dir)
         print("value changed")
 
         coil.set_pwm(abs(value))
@@ -613,6 +732,23 @@ class App(QMainWindow):
         # text = self.arduino.readline()
         # print(text)
     
+    def setup_joystick(self):
+        self.up.pressed.connect(partial(self.joystick_button_press, self.up))
+        self.up.released.connect(partial(self.joystick_button_release, self.up))
+        self.down.pressed.connect(partial(self.joystick_button_press, self.down))
+        self.down.released.connect(partial(self.joystick_button_release, self.down))
+        self.left.pressed.connect(partial(self.joystick_button_press, self.left))
+        self.left.released.connect(partial(self.joystick_button_release, self.left))
+        self.right.pressed.connect(partial(self.joystick_button_press, self.right))
+        self.right.released.connect(partial(self.joystick_button_release, self.right))
+
+        self.button_values = {
+        self.up: {"value": 0, "timer": None, "coils": [self.coil1, self.coil2], "value_history": [], "time_history": []},
+        self.down: {"value": 0, "timer": None, "coils": [self.coil3, self.coil4], "value_history": [], "time_history": []},
+        self.left: {"value": 0, "timer": None, "coils": [self.coil5, self.coil6], "value_history": [], "time_history": []},
+        self.right: {"value": 0, "timer": None, "coils": [self.coil7, self.coil8], "value_history": [], "time_history": []}
+        }
+
     def setup_coils(self, arduino):
         # TODO: ADD M, X and R values for maxwell coils
         m = [0.009874387,
@@ -660,15 +796,69 @@ class App(QMainWindow):
         # print("Acoustic Power = " + str(self.acousticOnOff)) # Debugging code
 
     def coilsOffClick(self):
-        coils = [self.coil1, self.coil2, self.coil3, self.coil4, self.coil5, self.coil6]
-        sliders = [self.x1_slider, self.x2_slider, self.y1_slider, self.y2_slider, self.z1_slider, self.z2_slider]
-        inputs = [self.x1_input, self.x2_input, self.y1_input, self.y2_input, self.z1_input, self.z2_input]
+        coils = [self.coil1, self.coil2, self.coil3, self.coil4, self.coil5, self.coil6, self.coil7, self.coil8, self.coil9, self.coil10]
+        sliders = [self.x1_slider, self.x2_slider, self.y1_slider, self.y2_slider, self.z1_slider, self.z2_slider, self.m1_slider, self.m2_slider, self.m3_slider, self.m4_slider]
+        inputs = [self.x1_input, self.x2_input, self.y1_input, self.y2_input, self.z1_input, self.z2_input, self.m1_input, self.m2_input, self.m3_input, self.m4_input]
         for i in range(len(coils)):
             coils[i].set_pwm(0)
             sliders[i].setValue(0)
             inputs[i].setText("0")
         print("Magnetics Off") # Debugging code
+    
+class PlotWindow(QtWidgets.QWidget):
+    def __init__(self, button_values):
+        super().__init__()
 
+        self.button_values = button_values
+
+        self.setWindowTitle("Button Value Plot")
+        self.setGeometry(200, 200, 800, 600)
+
+        self.figure = Figure()
+        self.canvas = FigureCanvas(self.figure)
+
+        self.button_layout = QtWidgets.QHBoxLayout()
+        
+        self.plot_button = QPushButton("Plot All")
+        self.plot_button.clicked.connect(self.plot_all_button_clicked)
+
+        self.clear_button = QtWidgets.QPushButton("Clear")
+        self.clear_button.clicked.connect(self.clear_plot)
+
+        self.button_layout.addWidget(self.plot_button)
+        self.button_layout.addWidget(self.clear_button)
+        
+
+        self.layout = QtWidgets.QVBoxLayout()
+        self.layout.addWidget(self.canvas)
+        self.layout.addLayout(self.button_layout)
+
+        self.setLayout(self.layout)
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.plot_all_button_clicked)
+        self.timer.start(200)
+
+
+    def plot_all_button_clicked(self):
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        ax.set_xlabel("Time (seconds)")
+        ax.set_ylabel("Button Value")
+        ax.set_title("Button Values over Time")
+
+        for button in self.button_values:
+            values = self.button_values[button]["value_history"]
+            times = self.button_values[button]["time_history"]
+            ax.plot(times, values, label=button.text())
+
+        ax.legend()
+        self.canvas.draw()
+    def clear_plot(self):
+        for button in self.button_values:
+            self.button_values[button]["value_history"].clear()
+            self.button_values[button]["time_history"].clear()
+    
 class DebugStream:
     """
     A class that redirects the standard output to a QTextStream
@@ -681,9 +871,17 @@ class DebugStream:
         self.cursor.movePosition(self.cursor.End)
         self.cursor.insertText(text)
         self.text_widget.ensureCursorVisible()
+    def flush(self):
+        return None
 
 if __name__ == '__main__':
     
+    # create a profile object
+    profiler = cProfile.Profile()
+
+    # start profiling
+    profiler.enable()
+
     # Create main application window
     app = QApplication([])
     main_app = App()
@@ -693,3 +891,11 @@ if __name__ == '__main__':
 
     if(sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
         QtWidgets.QApplication.instance().exec_()
+
+    # stop profiling
+    profiler.disable()
+
+    # save profiling results to file
+    with open('profile_stats.txt', 'w') as f:
+        stats = pstats.Stats(profiler, stream=f)
+        stats.sort_stats('cumulative').print_stats()
