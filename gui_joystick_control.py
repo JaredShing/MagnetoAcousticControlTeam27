@@ -133,7 +133,6 @@ class CameraWidget(QtWidgets.QWidget):
 
             cv2.circle(self.frame, (int(self.screen_width/2), int(self.screen_height/2)),10,color=(0, 0, 255))
             
-            #changing
             # Was getting a complex number error if calibration button was hit before ending 2nd point
             if not isinstance(self.distance, complex):
                 self.scale_text =  f"Scale: {round(self.distance/10,3)}px/mm"
@@ -159,11 +158,12 @@ class CameraWidget(QtWidgets.QWidget):
                 self.end_x = event.pos().x()
                 self.end_y = event.pos().y()+offset
                 self.video_frame.setMouseTracking(False)
+                print("Mouse clicked at x={}, y={}, clicked = {}".format(self.end_x, self.end_y, self.clicked))
             else:
                 self.video_frame.setMouseTracking(True)
                 self.start_x = event.pos().x()
                 self.start_y = event.pos().y()+offset
-        print("Mouse clicked at x={}, y={}, clicked = {}".format(self.start_x, self.start_y, self.clicked))
+                print("Mouse clicked at x={}, y={}, clicked = {}".format(self.start_x, self.start_y, self.clicked))
 
     def mouse_move_callback(self, event):
         y_difference = self.screen_height - self.video_frame.size().height()
@@ -185,7 +185,12 @@ class CameraWidget(QtWidgets.QWidget):
         hsvTest = cv2.cvtColor(dilated, cv2.COLOR_BGR2HSV)
         maskTest = cv2.inRange(hsvTest, black, gray)
         contours, hierarchy = cv2.findContours(maskTest, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
+
+        # Keep only the most recent 5 particles
+        self.particles = {i: particle for i, particle in self.particles.items() if len(particle['positions']) > 0}
+        particle_ids = sorted(self.particles.keys(), reverse=True)[:5]
+        self.particles = {i: self.particles[i] for i in particle_ids}
+
         self.current_particles = {}
         for i, contour in enumerate(contours):
             objectArea = cv2.contourArea(contour)
@@ -195,19 +200,28 @@ class CameraWidget(QtWidgets.QWidget):
                 self.current_particles[i] = (com[0], com[1])
 
         for i, (xc1, yc1) in self.current_particles.items():
-            if len(self.particles) == 0: # check if dictionary is empty
-                self.particles[i] = {'positions': [(xc1, yc1)]}
-            else:
-                add_particle = True
-                for j, particle in self.particles.items():
-                    if np.linalg.norm(np.array([xc1, yc1]) - np.array(particle['positions'][-1])) < 100:
-                        add_particle = False
-                        particle['positions'].append((xc1, yc1))
-                        self.error = np.linalg.norm(np.array(particle['positions'][-1])-np.array([self.screen_width/2, self.screen_height/2]))
-                if add_particle:
+            add_particle = True
+            for j, particle in self.particles.items():
+                if np.linalg.norm(np.array([xc1, yc1]) - np.array(particle['positions'][-1])) < 50:
+                    add_particle = False
+                    particle['positions'].append((xc1, yc1))
+                    # self.error = np.linalg.norm(np.array(particle['positions'][-1])-np.array([self.screen_width/2, self.screen_height/2]))
+            if add_particle:
+                if len(self.particles) < 5:
+                    # Add a new particle if there are less than 5 particles
                     self.particles[i] = {'positions': [(xc1, yc1)]}
-                    self.particles[i]['positions'] = self.particles[i]['positions'][-10:]
+                else:
+                    # Replace the oldest particle with the new particle if there are already 5 particles
+                    oldest_particle_id = min(self.particles.keys(), key=lambda x: len(self.particles[x]['positions']))
+                    self.particles[oldest_particle_id] = {'positions': [(xc1, yc1)]}
 
+            # Keep only the most recent 10 positions for each particle
+            if i in self.particles:
+                self.particles[i]['positions'] = self.particles[i]['positions'][-10:]
+
+        self.update_table(self.data_table, self.particles)
+
+        # Draw bounding boxes around the objects in the current frame
         
 
         # Draw bounding boxes around the objects in the current frame
@@ -220,6 +234,9 @@ class CameraWidget(QtWidgets.QWidget):
             width = 20
             height = 20
             cv2.rectangle(self.frame, (int(x), int(y)), (int(x + width), int(y + height)), (255, 0, 0), 2)
+            # Draw the particle number inside the bounding box
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            cv2.putText(self.frame, str(i), (int(x), int(y)-5), font, 0.5, (0, 0, 255), 1)
 
             # Draw the line connecting the previous positions
             if len(particle['positions']) > 1:
@@ -233,12 +250,15 @@ class CameraWidget(QtWidgets.QWidget):
     def update_table(self, tableWidget, data):
     # Clear the table
         tableWidget.clearContents()
-
         # Add the updated dictionary data to the table
-        for i, (index, (x, y)) in enumerate(data.items()):
+        for i, (index, value) in enumerate(data.items()):
+            # Extract the most recent position from the array
+            x, y = value['positions'][-1]
             tableWidget.setItem(i, 0, QtWidgets.QTableWidgetItem(str(index)))
             tableWidget.setItem(i, 1, QtWidgets.QTableWidgetItem(str(x)))
             tableWidget.setItem(i, 2, QtWidgets.QTableWidgetItem(str(y)))
+            error = round(np.linalg.norm(np.array([x,y])-np.array([self.screen_width/2, self.screen_height/2])),3)
+            tableWidget.setItem(i, 3, QtWidgets.QTableWidgetItem(str(error)))
                     
     def get_position_data(self):
         return self.positions
@@ -282,8 +302,9 @@ class Coil():
         try:
             self.arduino.write(string_to_send.encode())
         except serial.SerialException as e:
-            print(f"COM Port selected is not an arduino: ")
+            print(f"Failed to write PWM to Arduino: ")
         print(string_to_send)
+        time.sleep(0.1)
 
     # return the calculated current value based on the pwm value
     def get_current_value(self):
@@ -327,20 +348,20 @@ class App(QMainWindow):
         self.camera0ComboBox.currentIndexChanged.connect(self.camera0Change)
         self.camera1ComboBox.currentIndexChanged.connect(self.camera1Change)
 
+        # com_ports = serial.tools.list_ports.comports()
+        # com_ports_names = [port.device for port in com_ports]
+        # self.com_port_box = QComboBox()
+        # self.com_port_box.addItems(com_ports_names)
+        # self.com_port_box.currentIndexChanged.connect(self.connect_to_arduino)
         com_ports = serial.tools.list_ports.comports()
-        com_ports_names = [port.device for port in com_ports]
+        com_port_info = [(port.description) for port in com_ports]
         self.com_port_box = QComboBox()
-        self.com_port_box.addItems(com_ports_names)
+        self.com_port_box.setFixedWidth(200)  # Set the width to 200 pixels
+        self.com_port_box.setSizeAdjustPolicy(QComboBox.AdjustToContents)  # Adjust the size of the drop-down to fit the content
+        self.com_port_box.addItem("Select Com Port")
+        for device_name in com_port_info:
+            self.com_port_box.addItem(f"{device_name}")
         self.com_port_box.currentIndexChanged.connect(self.connect_to_arduino)
-
-        self.serial_data = ""
-
-
-        self.plot_button = QPushButton("Plot")
-        self.plot_button.clicked.connect(self.show_plot_window)
-
-        self.toolbar = self.addToolBar("Main Toolbar")
-        self.toolbar.addWidget(self.plot_button)
 
         x1_label = QLabel(self)
         x2_label = QLabel(self)
@@ -389,32 +410,26 @@ class App(QMainWindow):
 
 
         # Create buttons to control magnetics and acoustics
-        magneticButton = QPushButton('Turn Off Coils', self)
-        magneticButton.setToolTip('Turn Off Coils')
-        magneticButton.setStyleSheet('QPushButton {color: red}')
-        magneticButton.clicked.connect(self.coilsOffClick)
+        self.magneticButton = QPushButton('Turn Off Coils', self)
+        self.magneticButton.setToolTip('Turn Off Coils')
+        self.magneticButton.setStyleSheet('QPushButton {color: red}')
 
         # Create Calibration button
         self.calibrationButton = QPushButton('Start Calibration', self)
         self.calibrationButton.setToolTip('Calibration Button')
 
-        acousticPosButton = QPushButton('+', self)
-        acousticPosButton.setToolTip('Increase Acoustic Field Intensity')
-        acousticPosButton.clicked.connect(partial(self.acousticButtonPress, "U\n"))
+        self.acousticPosButton = QPushButton('+', self)
+        self.acousticPosButton.setToolTip('Increase Acoustic Field Intensity')
 
-        acousticNegButton = QPushButton('-', self)
-        acousticNegButton.setToolTip('Decrease Acoustic Field Intensity')
-        acousticNegButton.clicked.connect(partial(self.acousticButtonPress, "D\n"))
+        self.acousticNegButton = QPushButton('-', self)
+        self.acousticNegButton.setToolTip('Decrease Acoustic Field Intensity')
 
-        acousticButton = QPushButton('Acoustics On/Off', self)
-        acousticButton.setToolTip('Turn on/off acoustics')
-        acousticButton.clicked.connect(partial(self.acousticButtonPress, "E\n"))
-        acousticButton.setStyleSheet('QPushButton {color: red}')
-        acousticButton.clicked.connect(partial(self.onAcousticClick, acousticButton))
+        self.acousticButton = QPushButton('Acoustics On/Off', self)
+        self.acousticButton.setToolTip('Turn on/off acoustics')
+        self.acousticButton.setStyleSheet('QPushButton {color: red}')
 
-        acousticReset = QPushButton('Acoustic Reset', self)
-        acousticReset.setToolTip('Reset Acoustic Intensity to 0')
-        acousticReset.clicked.connect(partial(self.acousticButtonPress, "R\n"))
+        self.acousticReset = QPushButton('Acoustic Reset', self)
+        self.acousticReset.setToolTip('Reset Acoustic Intensity to 0')
 
         debug_button = QPushButton('Debug', self)
         debug_button.clicked.connect(self.toggle_terminal)
@@ -492,16 +507,16 @@ class App(QMainWindow):
         button_grid.addWidget(self.direction_buttons[5],5,2)
 
         
-        button_grid.addWidget(acousticButton,6,0)
-        button_grid.addWidget(acousticReset, 6, 2)
+        button_grid.addWidget(self.acousticButton,6,0)
+        button_grid.addWidget(self.acousticReset, 6, 2)
 
-        button_grid.addWidget(acousticPosButton, 7, 0)
+        button_grid.addWidget(self.acousticPosButton, 7, 0)
         button_grid.addWidget(acousticLabel, 7, 1)
-        button_grid.addWidget(acousticNegButton, 7, 2)
+        button_grid.addWidget(self.acousticNegButton, 7, 2)
 
         button_grid.addWidget(magnificationLabel, 8, 0)
         button_grid.addWidget(self.calibrationButton, 8, 1)
-        button_grid.addWidget(magneticButton, 8, 2)
+        button_grid.addWidget(self.magneticButton, 8, 2)
 
         button_grid.addWidget(camera0Label, 9, 0)
         button_grid.addWidget(camera1Label, 9, 1)
@@ -516,8 +531,8 @@ class App(QMainWindow):
         # Create a table widget
         self.table = QtWidgets.QTableWidget()
         self.table.setRowCount(10)
-        self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(["Index","X Pos", "Y Pos"])
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(["Index","X Pos", "Y Pos", "Error"])
 
         cw = QtWidgets.QWidget()
         self.my_grid = QtWidgets.QGridLayout()
@@ -550,142 +565,50 @@ class App(QMainWindow):
     
         print('Verifying camera work correctly')
 
-    def update(self):
-        try:
-            if self.arduino.in_waiting > 0:
-                if len(self.serial_data) > 10000: # if buffer is too full, clear it
-                    self.arduino.flushInput()
-                    self.serial_data = ""
-                    print("Buffer cleared")
-                self.serial_data += self.arduino.read(self.arduino.in_waiting).decode()
-                if '\n' in self.serial_data:
-                    lines = self.serial_data.split('\n')
-                    self.serial_data = lines[-1]
-                    for line in lines[:-1]:
-                        print(line)
-        except UnicodeDecodeError:
-            print("UnicodeDecodeError")
-            self.arduino.flushInput()
-            self.serial_data = ""
-
-    def show_plot_window(self):
-        # Create and show an instance of the PlotWindow class
-        self.plot_window = PlotWindow(self.button_values)
-        self.plot_window.show()
     def joystick_button_press(self, button):
             maxwell_value = 100
-            sleep_value = 0.5
+            sleep_value = 0.2
             if button == self.up:
-                self.coil4.set_pwm(255)
-                time.sleep(.1)
                 self.coil4.set_direction(0)
-                time.sleep(.1)
-                self.coil3.set_pwm(255)
-                time.sleep(.1)
                 self.coil3.set_direction(0)
+                self.coil4.set_pwm(255)
+                self.coil3.set_pwm(255)
                 time.sleep(sleep_value)
-                self.coil9.set_pwm(50)
-                time.sleep(.1)
                 self.coil9.set_direction(0)
-                time.sleep(.1)
-                self.coil10.set_pwm(50)
-                time.sleep(.1)
                 self.coil10.set_direction(1)
-                time.sleep(.1)
+                self.coil9.set_pwm(50)
+                self.coil10.set_pwm(50)
             elif button == self.down:
-                self.coil4.set_pwm(255)
-                time.sleep(.1)
-                self.coil4.set_direction(0)
-                time.sleep(.1)
-                self.coil3.set_pwm(255)
-                time.sleep(.1)
                 self.coil3.set_direction(0)
-                time.sleep(.1)
+                self.coil4.set_direction(0)
+                self.coil4.set_pwm(255)
+                self.coil3.set_pwm(255)
                 time.sleep(sleep_value)
-                self.coil9.set_pwm(maxwell_value)
-                time.sleep(.1)
                 self.coil9.set_direction(1)
-                time.sleep(.1)
-                self.coil10.set_pwm(maxwell_value)
-                time.sleep(.1)
                 self.coil10.set_direction(0)
-                time.sleep(.1)
+                self.coil9.set_pwm(maxwell_value)
+                self.coil10.set_pwm(maxwell_value)
             elif button == self.right:
-                self.coil1.set_pwm(255)
-                time.sleep(.1)
                 self.coil1.set_direction(0)
-                time.sleep(.1)
-                self.coil2.set_pwm(255)
-                time.sleep(.1)
                 self.coil2.set_direction(0)
-                time.sleep(.1)
+                self.coil1.set_pwm(255)
+                self.coil2.set_pwm(255)
                 time.sleep(sleep_value)
-                time.sleep(.1)
-                self.coil7.set_pwm(maxwell_value)
-                time.sleep(.1)
                 self.coil7.set_direction(0)
-                time.sleep(.1)
-                self.coil8.set_pwm(maxwell_value)
-                time.sleep(.1)
                 self.coil8.set_direction(1)
-                time.sleep(.1)
-            else:
-                self.coil1.set_pwm(255)
-                time.sleep(.1)
-                self.coil1.set_direction(0)
-                time.sleep(.1)
-                self.coil2.set_pwm(255)
-                time.sleep(.1)
-                self.coil2.set_direction(0)
-                time.sleep(sleep_value)
                 self.coil7.set_pwm(maxwell_value)
-                time.sleep(.1)
-                self.coil7.set_direction(1)
-                time.sleep(.1)
                 self.coil8.set_pwm(maxwell_value)
-                time.sleep(.1)
+            else:
+                self.coil1.set_direction(0)
+                self.coil2.set_direction(0)
+                self.coil1.set_pwm(255)
+                self.coil2.set_pwm(255)
+                time.sleep(sleep_value)
+                self.coil7.set_direction(1)
                 self.coil8.set_direction(0)
-            print(f"button: {button}")
-    # def joystick_button_press(self, button):
-    #     self.button_values[button]["timer"] = QtCore.QTimer()
-    #     self.button_values[button]["timer"].timeout.connect(partial(self.increment_value, button))
-    #     self.button_values[button]["timer"].start(300)  # 100 ms interval
-
-    def joystick_button_release(self, button):
-        self.button_values[button]["timer"].stop()
-        self.button_values[button]["timer"].timeout.disconnect()
-        self.button_values[button]["timer"] = QtCore.QTimer()
-        self.button_values[button]["timer"].timeout.connect(partial(self.decay_value, button))
-        self.button_values[button]["timer"].start(300)  # 100 ms interval
-
-    def increment_value(self, button):
-        self.button_values[button]["value"] = min(round(self.button_values[button]["value"])+20, 255)
-        print(f'{button.text()}: {self.button_values[button]["value"]}')
-        self.button_values[button]["coils"][0].set_pwm(self.button_values[button]["value"])
-        time.sleep(0.01)
-        self.button_values[button]["coils"][1].set_pwm(self.button_values[button]["value"])
-        self.button_values[button]["value_history"].append(self.button_values[button]["value"])
-        self.button_values[button]["time_history"].append(datetime.now())
-        if len(self.button_values[button]["value_history"]) > 200:
-            self.button_values[button]["value_history"].pop(0)
-            self.button_values[button]["time_history"].pop(0)
-
-    def decay_value(self, button):
-        if self.button_values[button]["value"] <= 5:
-            self.button_values[button]["timer"].stop()
-            self.button_values[button]["timer"].timeout.disconnect()
-        else:
-            self.decay_constant = 1.5
-            self.button_values[button]["value"] = self.button_values[button]["value"] * math.exp(-self.decay_constant * 100 / 1000)  # decay over 100 ms
-            print(f'{button.text()}: {round(self.button_values[button]["value"])}')
-            self.button_values[button]["coils"][0].set_pwm(round(self.button_values[button]["value"]))
-            time.sleep(0.01)
-            self.button_values[button]["coils"][1].set_pwm(round(self.button_values[button]["value"]))
-            self.button_values[button]["value_history"].append(self.button_values[button]["value"])
-            self.button_values[button]["time_history"].append(datetime.now())
-            if len(self.button_values[button]["value_history"]) > 200:
-                self.button_values[button]["value_history"].pop(0)
-                self.button_values[button]["time_history"].pop(0)
+                self.coil7.set_pwm(maxwell_value)
+                self.coil8.set_pwm(maxwell_value)
+            print(f"button: {button.text()} pressed")
 
     def toggle_terminal(self):
         self.debug_terminal.setVisible(not self.debug_terminal.isVisible())
@@ -698,27 +621,28 @@ class App(QMainWindow):
         self.change_slider(coil, input, button, slider)
 
     def connect_to_arduino(self, index):
+        # Connect to selected serial port
         # Disconnect any previously opened serial port
         if self.arduino is not None and self.arduino.is_open:
             self.arduino.close()
-        
-        # Connect to selected serial port
-        com_port = self.com_port_box.currentText()
+        com_description = self.com_port_box.currentText()
+        for port in serial.tools.list_ports.comports():
+            if port.description == com_description:
+                com_port = port.device
+                break
         try:
-            self.arduino = serial.Serial(com_port, 9600, timeout=1)
+            self.arduino = serial.Serial(com_port, 9600)
             self.setup_coils(self.arduino)
             self.setup_joystick()
-            self.setup_inputs_and_sliders()
-            self.timer2 = QtCore.QTimer(self)
-            self.timer2.timeout.connect(self.update)
-            self.timer2.start(100)  # call update every 100 ms
-            print("Arduino_Connected")
+            self.setup_inputs_and_sliders_and_buttons()
+            print("Arduino Connected")
         except serial.SerialException as e:
             print(f"COM Port selected is not an arduino: {e}")
 
 
-
-    def setup_inputs_and_sliders(self):
+    # All buttons that require communication to the arduino, need to go here. 
+    # Or else the GUI will crash, due to an arduino not be connected to communicate with the coils
+    def setup_inputs_and_sliders_and_buttons(self):
         coils = [self.coil1, self.coil2, self.coil3, self.coil4, self.coil5, self.coil6, self.coil7, self.coil8, self.coil9, self.coil10]
         sliders = [self.x1_slider, self.x2_slider, self.y1_slider, self.y2_slider, self.z1_slider, self.z2_slider, self.m1_slider, self.m2_slider, self.m3_slider, self.m4_slider]
         inputs = [self.x1_input, self.x2_input, self.y1_input, self.y2_input, self.z1_input, self.z2_input, self.m1_input, self.m2_input, self.m3_input, self.m4_input]
@@ -732,6 +656,14 @@ class App(QMainWindow):
             input.setFixedWidth(50)
             input.returnPressed.connect(partial(self.set_slider, slider, input, coil))
             input.editingFinished.connect(partial(self.set_slider, slider, input, coil))
+
+        self.magneticButton.clicked.connect(self.coilsOffClick)
+        self.acousticReset.clicked.connect(partial(self.acousticButtonPress, "R\n"))
+        self.acousticPosButton.clicked.connect(partial(self.acousticButtonPress, "U\n"))
+        self.acousticButton.clicked.connect(partial(self.onAcousticClick, self.acousticButton))
+        self.acousticButton.clicked.connect(partial(self.acousticButtonPress, "E\n"))
+        self.acousticNegButton.clicked.connect(partial(self.acousticButtonPress, "D\n"))
+
     
     def returnCameraIndexes(self):
         # checks the first 10 indexes.
@@ -783,7 +715,7 @@ class App(QMainWindow):
     def calibration_button(self, camera):
         self.distance = 0
         if camera.magButton == True:
-            camera.distance = ((camera.start_x-camera.end_x)**2-(camera.start_y-camera.end_y)**2)**(1/2)
+            camera.distance = np.linalg.norm(np.array([camera.start_x, camera.start_y])-np.array([camera.end_x, camera.end_y]))
             print(f"Distance: {camera.distance}, Magbutton: {camera.magButton}")
             camera.magButton = False
             camera.clicked = 0
