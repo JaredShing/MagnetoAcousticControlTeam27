@@ -67,6 +67,7 @@ class CameraWidget(QtWidgets.QWidget):
         self.distance = 0
         self.particles = {}
         self.error = 0
+        self.tracking_enabled = False
 
         print('Started camera: {}'.format(self.camera_stream_link))
 
@@ -120,7 +121,10 @@ class CameraWidget(QtWidgets.QWidget):
             
             self.frame = cv2.resize(frame, (self.screen_width, self.screen_height))
             # Add green line to indicte clicked point
-            self.add_contours()
+            
+            if self.tracking_enabled:
+                print("Tracking Enabled")
+                self.add_contours()
 
             if self.magButton:
                 if self.clicked == 1:
@@ -138,7 +142,7 @@ class CameraWidget(QtWidgets.QWidget):
                 self.scale_text =  f"Scale: {round(self.distance/10,3)}px/mm"
 
             cv2.putText(frame, self.scale_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-            cv2.putText(frame, str(round(self.error, 3)), (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+            # cv2.putText(frame, str(round(self.error, 3)), (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
             # print(self.particles)
             # Convert to pixmap and set to video frame
             self.img = QtGui.QImage(self.frame, self.frame.shape[1], self.frame.shape[0], QtGui.QImage.Format_RGB888).rgbSwapped()
@@ -318,7 +322,6 @@ class Coil():
     def calc_current(self):
         self.current = self.pwm_value*self.m + self.b
 
-
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -453,6 +456,7 @@ class App(QMainWindow):
         camera1Label = QLabel(self)
         camera1Label.setText("Camera 2 View:")
 
+        self.tracking_button = QPushButton("Particle Tracking")
         # magnificationInput = QLineEdit(self)
         magnificationLabel = QLabel(self)
         magnificationLabel.setText("Magnification:")
@@ -500,6 +504,8 @@ class App(QMainWindow):
         button_grid.addWidget(self.z1_slider,4,0)
         button_grid.addWidget(z1_label,4,1)
         button_grid.addWidget(self.direction_buttons[4],4,2)
+        button_grid.addWidget(self.tracking_button, 4, 3)
+
 
 
         button_grid.addWidget(self.z2_slider,5,0)
@@ -569,10 +575,10 @@ class App(QMainWindow):
             maxwell_value = 100
             sleep_value = 0.2
             if button == self.up:
-                self.coil4.set_direction(0)
                 self.coil3.set_direction(0)
-                self.coil4.set_pwm(255)
+                self.coil6.set_direction(0)
                 self.coil3.set_pwm(255)
+                self.coil6.set_pwm(255)
                 time.sleep(sleep_value)
                 self.coil9.set_direction(0)
                 self.coil10.set_direction(1)
@@ -580,18 +586,18 @@ class App(QMainWindow):
                 self.coil10.set_pwm(50)
             elif button == self.down:
                 self.coil3.set_direction(0)
-                self.coil4.set_direction(0)
-                self.coil4.set_pwm(255)
+                self.coil6.set_direction(0)
                 self.coil3.set_pwm(255)
+                self.coil6.set_pwm(255)
                 time.sleep(sleep_value)
                 self.coil9.set_direction(1)
                 self.coil10.set_direction(0)
                 self.coil9.set_pwm(maxwell_value)
                 self.coil10.set_pwm(maxwell_value)
             elif button == self.right:
-                self.coil1.set_direction(0)
+                self.coil5.set_direction(0)
                 self.coil2.set_direction(0)
-                self.coil1.set_pwm(255)
+                self.coil5.set_pwm(255)
                 self.coil2.set_pwm(255)
                 time.sleep(sleep_value)
                 self.coil7.set_direction(0)
@@ -599,9 +605,9 @@ class App(QMainWindow):
                 self.coil7.set_pwm(maxwell_value)
                 self.coil8.set_pwm(maxwell_value)
             else:
-                self.coil1.set_direction(0)
+                self.coil5.set_direction(0)
                 self.coil2.set_direction(0)
-                self.coil1.set_pwm(255)
+                self.coil5.set_pwm(255)
                 self.coil2.set_pwm(255)
                 time.sleep(sleep_value)
                 self.coil7.set_direction(1)
@@ -701,6 +707,7 @@ class App(QMainWindow):
         self.zero = CameraWidget(self.screen_width//3, self.screen_height//3, self.table, self.camera0)
         self.my_grid.addWidget(self.zero.get_video_frame(),0,0,1,2)
         self.calibrationButton.clicked.connect(partial(self.calibration_button, self.zero))
+        self.tracking_button.clicked.connect(partial(self.enable_tracking,self.zero))
 
     def camera1Change(self, index):
         # print("Text changed:", s)
@@ -710,6 +717,7 @@ class App(QMainWindow):
         self.camera1 = self.availableCameras[index - 1]
         self.one = CameraWidget(self.screen_width//3, self.screen_height//3, self.table, self.camera1)
         self.my_grid.addWidget(self.one.get_video_frame(),1,0,1,1)
+        # self.tracking_button.clicked.connect(partial(self.enable_tracking,self.one))
     
 
     def calibration_button(self, camera):
@@ -726,6 +734,13 @@ class App(QMainWindow):
             camera.magButton = True
             self.calibrationButton.setText("End Calibration")
 
+    def enable_tracking(self, camera):
+        if camera.tracking_enabled:
+            camera.tracking_enabled = False
+            camera.particles = {}
+        else:
+            camera.tracking_enabled = True
+        print(f"Tracking: {camera.tracking_enabled}")
 
     def change_slider(self, coil, input, dir_butt, slider):
         value = slider.value()
