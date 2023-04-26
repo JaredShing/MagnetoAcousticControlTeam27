@@ -317,6 +317,7 @@ class Coil():
     # Set the direction of the coil
     def set_direction(self, direction_request):
         self.direction = direction_request
+        time.sleep(0.1)
 
     # Calculate the current using the linear regression calculated experimentally
     def calc_current(self):
@@ -573,12 +574,13 @@ class App(QMainWindow):
 
     def joystick_button_press(self, button):
             maxwell_value = 100
+            helmholtz_value = 100
             sleep_value = 0.2
             if button == self.up:
                 self.coil3.set_direction(0)
-                self.coil6.set_direction(0)
-                self.coil3.set_pwm(255)
-                self.coil6.set_pwm(255)
+                self.coil4.set_direction(0)
+                self.coil3.set_pwm(helmholtz_value)
+                self.coil4.set_pwm(helmholtz_value)
                 time.sleep(sleep_value)
                 self.coil9.set_direction(0)
                 self.coil10.set_direction(1)
@@ -586,29 +588,29 @@ class App(QMainWindow):
                 self.coil10.set_pwm(50)
             elif button == self.down:
                 self.coil3.set_direction(0)
-                self.coil6.set_direction(0)
-                self.coil3.set_pwm(255)
-                self.coil6.set_pwm(255)
+                self.coil4.set_direction(0)
+                self.coil3.set_pwm(helmholtz_value)
+                self.coil4.set_pwm(helmholtz_value)
                 time.sleep(sleep_value)
                 self.coil9.set_direction(1)
                 self.coil10.set_direction(0)
                 self.coil9.set_pwm(maxwell_value)
                 self.coil10.set_pwm(maxwell_value)
             elif button == self.right:
-                self.coil5.set_direction(0)
+                self.coil1.set_direction(0)
                 self.coil2.set_direction(0)
-                self.coil5.set_pwm(255)
-                self.coil2.set_pwm(255)
+                self.coil1.set_pwm(helmholtz_value)
+                self.coil2.set_pwm(helmholtz_value)
                 time.sleep(sleep_value)
                 self.coil7.set_direction(0)
                 self.coil8.set_direction(1)
                 self.coil7.set_pwm(maxwell_value)
                 self.coil8.set_pwm(maxwell_value)
             else:
-                self.coil5.set_direction(0)
+                self.coil1.set_direction(0)
                 self.coil2.set_direction(0)
-                self.coil5.set_pwm(255)
-                self.coil2.set_pwm(255)
+                self.coil1.set_pwm(helmholtz_value)
+                self.coil2.set_pwm(helmholtz_value)
                 time.sleep(sleep_value)
                 self.coil7.set_direction(1)
                 self.coil8.set_direction(0)
@@ -789,13 +791,6 @@ class App(QMainWindow):
         self.right.pressed.connect(partial(self.joystick_button_press, self.right))
         
 
-        self.button_values = {
-        self.up: {"value": 0, "timer": None, "coils": [self.coil1, self.coil2], "value_history": [], "time_history": []},
-        self.down: {"value": 0, "timer": None, "coils": [self.coil3, self.coil4], "value_history": [], "time_history": []},
-        self.left: {"value": 0, "timer": None, "coils": [self.coil5, self.coil6], "value_history": [], "time_history": []},
-        self.right: {"value": 0, "timer": None, "coils": [self.coil7, self.coil8], "value_history": [], "time_history": []}
-        }
-
     def setup_coils(self, arduino):
         # TODO: ADD M, X and R values for maxwell coils
         m = [0.009874387,
@@ -824,8 +819,11 @@ class App(QMainWindow):
         self.coil2 = Coil("X", 2, r[1], m[1], x[1], arduino)
         self.coil3 = Coil("Y", 1, r[2], m[2], x[2], arduino)
         self.coil4 = Coil("Y", 2, r[3], m[3], x[3], arduino)
+        
+        # Disabled due to motor controller failure
         self.coil5 = Coil("Z", 1, r[4], m[4], x[4], arduino)
         self.coil6 = Coil("Z", 2, r[5], m[5], x[5], arduino)
+
         self.coil7 = Coil("M", 1, r[6], m[6], x[6], arduino)
         self.coil8 = Coil("M", 2, r[7], m[7], x[7], arduino)
         self.coil9 = Coil("M", 3, r[8], m[8], x[8], arduino)
@@ -852,60 +850,7 @@ class App(QMainWindow):
             inputs[i].setText("0")
         print("Magnetics Off") # Debugging code
     
-class PlotWindow(QtWidgets.QWidget):
-    def __init__(self, button_values):
-        super().__init__()
 
-        self.button_values = button_values
-
-        self.setWindowTitle("Button Value Plot")
-        self.setGeometry(200, 200, 800, 600)
-
-        self.figure = Figure()
-        self.canvas = FigureCanvas(self.figure)
-
-        self.button_layout = QtWidgets.QHBoxLayout()
-        
-        self.plot_button = QPushButton("Plot All")
-        self.plot_button.clicked.connect(self.plot_all_button_clicked)
-
-        self.clear_button = QtWidgets.QPushButton("Clear")
-        self.clear_button.clicked.connect(self.clear_plot)
-
-        self.button_layout.addWidget(self.plot_button)
-        self.button_layout.addWidget(self.clear_button)
-        
-
-        self.layout = QtWidgets.QVBoxLayout()
-        self.layout.addWidget(self.canvas)
-        self.layout.addLayout(self.button_layout)
-
-        self.setLayout(self.layout)
-
-        self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.plot_all_button_clicked)
-        self.timer.start(200)
-
-
-    def plot_all_button_clicked(self):
-        self.figure.clear()
-        ax = self.figure.add_subplot(111)
-        ax.set_xlabel("Time (seconds)")
-        ax.set_ylabel("Button Value")
-        ax.set_title("Button Values over Time")
-
-        for button in self.button_values:
-            values = self.button_values[button]["value_history"]
-            times = self.button_values[button]["time_history"]
-            ax.plot(times, values, label=button.text())
-
-        ax.legend()
-        self.canvas.draw()
-    def clear_plot(self):
-        for button in self.button_values:
-            self.button_values[button]["value_history"].clear()
-            self.button_values[button]["time_history"].clear()
-    
 class DebugStream:
     """
     A class that redirects the standard output to a QTextStream
