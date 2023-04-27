@@ -537,7 +537,7 @@ class App(QMainWindow):
 
         self.buttonList = [self.up, self.down, self.left, self.right, self.magneticButton, 
                       self.calibrationButton, self.acousticPosButton, self.acousticNegButton, 
-                      self.acousticButton, self.acousticReset, debug_button, self.tracking_button]
+                      self.acousticButton, self.acousticReset, self.tracking_button]
         
         for button in self.direction_buttons:
             self.buttonList.append(button)
@@ -602,7 +602,7 @@ class App(QMainWindow):
                 self.m3_slider.setValue(maxwell_value)
                 self.m4_slider.setValue(maxwell_value)
                 self.direction_buttons[8].setText("+")
-                self.direction_buttons[9].setText("+")
+                self.direction_buttons[9].setText("-")
             elif button == self.down:
                 self.coil3.set_direction(0)
                 self.coil4.set_direction(0)
@@ -618,7 +618,7 @@ class App(QMainWindow):
                 self.m3_slider.setValue(maxwell_value)
                 self.m4_slider.setValue(maxwell_value)
                 self.direction_buttons[8].setText("-")
-                self.direction_buttons[9].setText("-")
+                self.direction_buttons[9].setText("+")
             elif button == self.right:
                 self.coil1.set_direction(0)
                 self.coil2.set_direction(0)
@@ -634,7 +634,7 @@ class App(QMainWindow):
                 self.m1_slider.setValue(maxwell_value)
                 self.m2_slider.setValue(maxwell_value)
                 self.direction_buttons[6].setText("+")
-                self.direction_buttons[7].setText("+")
+                self.direction_buttons[7].setText("-")
             else:
                 self.coil1.set_direction(0)
                 self.coil2.set_direction(0)
@@ -650,7 +650,7 @@ class App(QMainWindow):
                 self.m1_slider.setValue(maxwell_value)
                 self.m2_slider.setValue(maxwell_value)
                 self.direction_buttons[6].setText("-")
-                self.direction_buttons[7].setText("-")
+                self.direction_buttons[7].setText("+")
             print(f"button: {button.text()} pressed")
 
     def toggle_terminal(self):
