@@ -352,6 +352,12 @@ class App(QMainWindow):
         self.camera0ComboBox.currentIndexChanged.connect(self.camera0Change)
         self.camera1ComboBox.currentIndexChanged.connect(self.camera1Change)
 
+
+        # # Periodically set video frame to display
+        # self.timer = QtCore.QTimer()
+        # self.timer.timeout.connect(self.set_frame)
+        # self.timer.start(1)
+
         # com_ports = serial.tools.list_ports.comports()
         # com_ports_names = [port.device for port in com_ports]
         # self.com_port_box = QComboBox()
@@ -813,10 +819,11 @@ class App(QMainWindow):
     def acousticButtonPress(self, command):
         try:
             self.arduino.write(command.encode())
+            print("Acoustics Sent")
         except serial.SerialException as e:
             print(f"Failed to write acoustics to arduino: {e}")
 
-        print("clicked")
+        # print("clicked")
         # time.sleep(2)
         # text = self.arduino.readline()
         # print(text)
